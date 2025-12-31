@@ -1,0 +1,145 @@
+services:
+  # =============================================================================
+  # INFRASTRUCTURE SERVICES
+  # =============================================================================
+  
+  # PostgreSQL - Audit Log Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: uigs-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-uigs_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uigs_password_2024}
+      POSTGRES_DB: ${POSTGRES_DB:-uigs_audit}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uigs_user} -d ${POSTGRES_DB:-uigs_audit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uigs-network
+
+  # Neo4j - Graph Database
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: uigs-neo4j
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-neo4j_password_2024}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uigs-network
+
+  # RabbitMQ - Message Queue
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: uigs-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-uigs_rabbit}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbit_password_2024}
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uigs-network
+
+  # =============================================================================
+  # APPLICATION SERVICES
+  # =============================================================================
+  
+  # Ingestion Service (Go)
+  ingestion:
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    container_name: uigs-ingestion
+    environment:
+      - PORT=${INGESTION_PORT:-8081}
+      - POSTGRES_URL=postgres://${POSTGRES_USER:-uigs_user}:${POSTGRES_PASSWORD:-uigs_password_2024}@postgres:5432/${POSTGRES_DB:-uigs_audit}?sslmode=disable
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-uigs_rabbit}:${RABBITMQ_PASSWORD:-rabbit_password_2024}@rabbitmq:5672/
+      - JWT_SECRET=${JWT_SECRET:-default_jwt_secret_change_me}
+    ports:
+      - "${INGESTION_PORT:-8081}:${INGESTION_PORT:-8081}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uigs-network
+    restart: unless-stopped
+
+  # Graph Engine (Python) - Placeholder for Phase 2
+  # graph-engine:
+  #   build:
+  #     context: ./services/graph-engine
+  #     dockerfile: Dockerfile
+  #   container_name: uigs-graph-engine
+  #   environment:
+  #     - PORT=${GRAPH_ENGINE_PORT:-8082}
+  #     - NEO4J_URI=bolt://neo4j:7687
+  #     - NEO4J_USER=${NEO4J_USER:-neo4j}
+  #     - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j_password_2024}
+  #     - RABBITMQ_URL=amqp://${RABBITMQ_USER:-uigs_rabbit}:${RABBITMQ_PASSWORD:-rabbit_password_2024}@rabbitmq:5672/
+  #   ports:
+  #     - "${GRAPH_ENGINE_PORT:-8082}:${GRAPH_ENGINE_PORT:-8082}"
+  #   depends_on:
+  #     - neo4j
+  #     - rabbitmq
+  #   networks:
+  #     - uigs-network
+
+  # Frontend (Next.js) - Placeholder for Phase 3
+  # frontend:
+  #   build:
+  #     context: ./services/frontend
+  #     dockerfile: Dockerfile
+  #   container_name: uigs-frontend
+  #   environment:
+  #     - NEXT_PUBLIC_GRAPHQL_URL=http://localhost:${GRAPH_ENGINE_PORT:-8082}/graphql
+  #     - NEXT_PUBLIC_INGESTION_URL=http://localhost:${INGESTION_PORT:-8081}
+  #   ports:
+  #     - "${FRONTEND_PORT:-3000}:3000"
+  #   depends_on:
+  #     - ingestion
+  #   networks:
+  #     - uigs-network
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  uigs-network:
+    driver: bridge
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  rabbitmq_data:

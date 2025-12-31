@@ -1,0 +1,29 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://example.org/contexts/employment/v1"
+  ],
+  "type": ["VerifiableCredential", "EmploymentCredential"],
+  "issuer": {
+    "id": "did:example:company101",
+    "name": "Example Tech Corp"
+  },
+  "issuanceDate": "2024-02-01T00:00:00Z",
+  "credentialSubject": {
+    "id": "did:example:employee456",
+    "name": "John Doe",
+    "email": "john.doe@exampletech.com",
+    "employeeId": "EMP-2024-0456",
+    "position": "Senior Software Engineer",
+    "department": "Engineering",
+    "startDate": "2024-02-01",
+    "employmentType": "Full-time"
+  },
+  "proof": {
+    "type": "Ed25519Signature2020",
+    "created": "2024-02-01T09:00:00Z",
+    "verificationMethod": "did:example:company101#key-1",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "zR4dFfa9SkqZMVPxAQpicqDT..."
+  }
+}

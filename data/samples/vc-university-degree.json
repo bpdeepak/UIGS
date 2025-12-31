@@ -1,0 +1,30 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://example.org/contexts/alumni/v1"
+  ],
+  "type": ["VerifiableCredential", "UniversityDegreeCredential"],
+  "issuer": {
+    "id": "did:example:university123",
+    "name": "Example University"
+  },
+  "issuanceDate": "2024-01-15T00:00:00Z",
+  "credentialSubject": {
+    "id": "did:example:student456",
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "degree": {
+      "type": "BachelorDegree",
+      "name": "Bachelor of Science in Computer Science"
+    },
+    "dateOfBirth": "1995-06-15",
+    "graduationDate": "2024-05-20"
+  },
+  "proof": {
+    "type": "Ed25519Signature2020",
+    "created": "2024-01-15T12:00:00Z",
+    "verificationMethod": "did:example:university123#key-1",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "z58DAdFfa9SkqZMVPxAQpicqDT..."
+  }
+}

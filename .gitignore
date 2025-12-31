@@ -3,8 +3,8 @@
 .env.local
 .env.*.local
 
-# Docker volumes
-data/
+# Docker volumes (keep samples, ignore runtime data)
+data/volumes/
 volumes/
 
 # Go
@@ -80,3 +80,7 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
+
+# Papers
+papers/
+

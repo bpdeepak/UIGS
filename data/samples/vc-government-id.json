@@ -1,0 +1,33 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://example.org/contexts/government/v1"
+  ],
+  "type": ["VerifiableCredential", "GovernmentIDCredential"],
+  "issuer": {
+    "id": "did:example:government789",
+    "name": "Example Government Authority"
+  },
+  "issuanceDate": "2023-06-01T00:00:00Z",
+  "expirationDate": "2033-06-01T00:00:00Z",
+  "credentialSubject": {
+    "id": "did:example:citizen456",
+    "name": "John Doe",
+    "dateOfBirth": "1995-06-15",
+    "nationality": "Example Country",
+    "documentNumber": "GOV-123456789",
+    "address": {
+      "street": "123 Main Street",
+      "city": "Example City",
+      "postalCode": "12345",
+      "country": "Example Country"
+    }
+  },
+  "proof": {
+    "type": "Ed25519Signature2020",
+    "created": "2023-06-01T10:00:00Z",
+    "verificationMethod": "did:example:government789#key-1",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "z7GAdFfa9SkqZMVPxAQpicqDT..."
+  }
+}
