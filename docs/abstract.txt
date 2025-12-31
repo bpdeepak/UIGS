@@ -1,0 +1,75 @@
+================================================================================
+                              PROJECT ABSTRACT
+           UNIFIED IDENTITY GRAPH SYSTEM (UIGS) FOR RESOLVING
+                    DIGITAL IDENTITY FRAGMENTATION
+================================================================================
+Document Version: 1.0
+Date: 2024-12-31
+================================================================================
+
+ABSTRACT
+--------
+
+The proliferation of digital services has led to an unprecedented 
+fragmentation of user identity across disparate platforms, each maintaining 
+partial, often conflicting, and siloed representations of the same individual. 
+Current approaches to digital identity management—including centralized 
+Identity Providers (IdPs), federated systems (OAuth, SAML), and emerging 
+Self-Sovereign Identity (SSI) frameworks—address authentication and 
+authorization but fail to tackle the fundamental problem: identity is treated 
+as a static set of credentials rather than a dynamic, evolving entity.
+
+This project proposes the design and implementation of a Unified Identity 
+Graph System (UIGS), a novel framework that models digital identity as a 
+time-evolving, privacy-preserving knowledge graph. Unlike existing SSI wallets 
+that merely store Verifiable Credentials (VCs), UIGS reasons over fragmented 
+identity artifacts to:
+
+  (1) Ingest heterogeneous identity signals from multiple sources (social 
+      logins, government credentials, blockchain DIDs, manual attestations).
+      
+  (2) Decompose credentials into atomic claims represented as graph nodes 
+      with temporal edges, enabling historical querying and evolution tracking.
+      
+  (3) Detect and represent conflicts as first-class entities within the graph, 
+      rather than treating conflicting data as verification failures.
+      
+  (4) Perform user-controlled probabilistic identity resolution using 
+      graph-based algorithms, placing agency in the hands of the individual.
+      
+  (5) Support selective disclosure via zero-knowledge-compatible proof 
+      mechanisms, ensuring privacy-by-design.
+
+The system is grounded in a comprehensive literature survey spanning 25 
+academic papers (2020-2025) across eight thematic areas: identity management 
+evolution, SSI/DIDs, Verifiable Credentials, trust models, zero-knowledge 
+proofs, graph-based identity representation, identity resolution, and 
+regulatory compliance (GDPR/eIDAS).
+
+The proposed architecture employs a microservices-based design with:
+  - A high-throughput Ingestion Service (Go) for credential intake.
+  - A Graph Reasoning Engine (Python/Neo4j) for knowledge representation 
+    and link prediction.
+  - A User Dashboard (Next.js) for visualization and identity management.
+
+This work contributes to the field by addressing five identified research gaps:
+  (1) Lack of identity continuity models
+  (2) Absence of user-centric identity unification
+  (3) No computational representation of identity conflicts
+  (4) Corporate control over identity resolution
+  (5) Domain-specific rather than cross-domain identity graphs
+
+The outcome is a production-ready system that empowers users to own, visualize, 
+and reason about their fragmented digital selves.
+
+================================================================================
+KEYWORDS
+--------
+Digital Identity, Identity Fragmentation, Self-Sovereign Identity, 
+Decentralized Identifiers, Verifiable Credentials, Knowledge Graph, 
+Graph Database, Identity Resolution, Zero-Knowledge Proofs, Privacy, 
+User-Centric Identity Management, Microservices Architecture
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================

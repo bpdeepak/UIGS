@@ -1,0 +1,544 @@
+================================================================================
+                       SYSTEM ARCHITECTURE DESIGN
+           UNIFIED IDENTITY GRAPH SYSTEM (UIGS)
+================================================================================
+Document Version: 1.0
+Date: 2024-12-31
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. Introduction
+2. Architectural Goals and Constraints
+3. High-Level Architecture
+4. Component Design
+   4.1 Ingestion Service (Go)
+   4.2 Graph Reasoning Engine (Python)
+   4.3 Frontend Dashboard (Next.js)
+   4.4 Data Stores
+5. Data Flow Diagrams
+6. Deployment Architecture
+7. Technology Stack Summary
+8. Security Architecture
+
+================================================================================
+1. INTRODUCTION
+================================================================================
+
+1.1 PURPOSE
+-----------
+This document describes the system architecture for the Unified Identity Graph 
+System (UIGS). It covers the high-level design, component interactions, data 
+flows, and deployment strategies.
+
+1.2 SCOPE
+---------
+This architecture supports the requirements defined in srs.txt and will be 
+implemented across the four phases defined in project_phase_plan.txt.
+
+1.3 ARCHITECTURAL APPROACH
+--------------------------
+The system follows a MICROSERVICES ARCHITECTURE to ensure:
+  - Independent scalability of components.
+  - Technology-appropriate choices per service.
+  - Fault isolation (failure in one service doesn't crash others).
+  - Ease of development and testing in isolation.
+
+================================================================================
+2. ARCHITECTURAL GOALS AND CONSTRAINTS
+================================================================================
+
+2.1 GOALS
+---------
+  G1: HIGH THROUGHPUT INGESTION
+    - Handle bursts of credential uploads without blocking.
+    - Achieved via: Go-based Ingestion Service + async queue.
+
+  G2: RICH GRAPH REASONING
+    - Support complex graph queries and algorithms.
+    - Achieved via: Python + Neo4j + NetworkX.
+
+  G3: RESPONSIVE USER INTERFACE
+    - Sub-second updates on dashboard.
+    - Achieved via: Next.js with server-side rendering.
+
+  G4: DATA SOVEREIGNTY
+    - All data stored locally; no third-party cloud dependency.
+    - Achieved via: Self-hosted Neo4j + PostgreSQL.
+
+  G5: DEPLOYABILITY
+    - Single-command deployment for developers.
+    - Achieved via: Docker Compose orchestration.
+
+2.2 CONSTRAINTS
+---------------
+  C1: Single developer (academic project).
+  C2: 6-8 week implementation timeline.
+  C3: Free/open-source tooling only.
+
+================================================================================
+3. HIGH-LEVEL ARCHITECTURE
+================================================================================
+
+The system comprises three services and two data stores, connected via a 
+message queue.
+
+ASCII ARCHITECTURE DIAGRAM:
+
++-----------------------------------------------------------------------+
+|                         UNIFIED IDENTITY GRAPH SYSTEM                 |
++-----------------------------------------------------------------------+
+|                                                                       |
+|  +----------------------+        +----------------------+             |
+|  |   EXTERNAL SOURCES   |        |      END USER        |             |
+|  | (Google OIDC, VCs)   |        |   (Web Browser)      |             |
+|  +----------+-----------+        +----------+-----------+             |
+|             |                               |                         |
+|             | HTTPS                         | HTTPS                   |
+|             v                               v                         |
+|  +----------+-----------+        +----------+-----------+             |
+|  |                      |        |                      |             |
+|  |  INGESTION SERVICE   |        |  FRONTEND DASHBOARD  |             |
+|  |  (Go / Gin)          |        |  (Next.js / React)   |             |
+|  |                      |        |                      |             |
+|  |  Endpoints:          |        |  - Graph Viz         |             |
+|  |  - POST /ingest      |        |  - Upload Modal      |             |
+|  |  - POST /auth/oidc   |        |  - Conflict Panel    |             |
+|  |                      |        |                      |             |
+|  +----------+-----------+        +----------+-----------+             |
+|             |                               |                         |
+|             | AMQP                          | GraphQL                 |
+|             v                               v                         |
+|  +----------+-----------+        +----------+-----------+             |
+|  |                      |        |                      |             |
+|  |    MESSAGE QUEUE     +------->+   GRAPH REASONING    |             |
+|  |    (RabbitMQ)        |        |   ENGINE (Python)    |             |
+|  |                      |        |                      |             |
+|  +----------------------+        |  - Consume events    |             |
+|                                  |  - Map to graph      |             |
+|                                  |  - Run link pred.    |             |
+|                                  |  - Serve GraphQL     |             |
+|                                  |                      |             |
+|                                  +----------+-----------+             |
+|                                             |                         |
+|                        +--------------------+--------------------+    |
+|                        |                                         |    |
+|                        v                                         v    |
+|             +----------+-----------+              +----------+--------+
+|             |                      |              |                   |
+|             |     POSTGRESQL       |              |      NEO4J        |
+|             |     (Audit Log)      |              |  (Identity Graph) |
+|             |                      |              |                   |
+|             +----------------------+              +-------------------+
+|                                                                       |
++-----------------------------------------------------------------------+
+
+LEGEND:
+  +---+  = Component / Service
+  --->   = Data flow direction
+  AMQP   = Advanced Message Queuing Protocol (RabbitMQ)
+  GraphQL= Query language for Graph Engine API
+
+================================================================================
+4. COMPONENT DESIGN
+================================================================================
+
+4.1 INGESTION SERVICE (Go)
+--------------------------
+
+PURPOSE:
+  High-throughput gateway for all identity signals entering the system.
+
+TECHNOLOGY:
+  - Language: Go 1.21+
+  - Framework: Gin (HTTP router)
+  - Libraries: golang-jwt (JWT parsing), pgx (PostgreSQL driver)
+
+RESPONSIBILITIES:
+  (1) Receive HTTP requests (VCs, OIDC redirects).
+  (2) Validate signatures (JWT for OIDC, JSON-LD proofs for VCs).
+  (3) Write raw payload to PostgreSQL (immutable audit log).
+  (4) Publish "NewIdentitySignal" event to RabbitMQ.
+
+API ENDPOINTS:
+
+  +------------------+--------+-----------------------------------------------+
+  |  Endpoint        | Method |  Description                                  |
+  +------------------+--------+-----------------------------------------------+
+  |  /api/v1/ingest  | POST   |  Accept JSON body (VC or manual claim).       |
+  |                  |        |  Returns: { event_id: UUID }                  |
+  +------------------+--------+-----------------------------------------------+
+  |  /auth/oidc/init | GET    |  Redirect user to Google/GitHub login.        |
+  +------------------+--------+-----------------------------------------------+
+  |  /auth/oidc/cb   | GET    |  OIDC callback; extract ID token, publish evt.|
+  +------------------+--------+-----------------------------------------------+
+  |  /health         | GET    |  Liveness check. Returns 200 OK.              |
+  +------------------+--------+-----------------------------------------------+
+
+DATA MODEL (PostgreSQL):
+
+  Table: ingestion_events
+  +--------------+-------------+----------------------------------------+
+  |  Column      |  Type       |  Description                           |
+  +--------------+-------------+----------------------------------------+
+  |  event_id    |  UUID (PK)  |  Unique event identifier               |
+  |  user_id     |  UUID (FK)  |  Owner of this event                   |
+  |  source_type |  VARCHAR    |  VC | OIDC | MANUAL                    |
+  |  raw_payload |  JSONB      |  Original JSON received                |
+  |  created_at  |  TIMESTAMP  |  Event creation time                   |
+  +--------------+-------------+----------------------------------------+
+
+MESSAGE FORMAT (RabbitMQ):
+
+  {
+    "event_id": "uuid",
+    "user_id": "uuid",
+    "source_type": "VC",
+    "payload": { ... original VC ... },
+    "timestamp": "ISO8601"
+  }
+
+--------------------------------------------------------------------------------
+
+4.2 GRAPH REASONING ENGINE (Python)
+-----------------------------------
+
+PURPOSE:
+  Core intelligence layer that transforms raw events into a structured 
+  knowledge graph and performs reasoning (conflict detection, link prediction).
+
+TECHNOLOGY:
+  - Language: Python 3.11+
+  - Framework: FastAPI (async HTTP)
+  - Libraries: neo4j (driver), pika (RabbitMQ), NetworkX (graph algorithms)
+
+RESPONSIBILITIES:
+  (1) Consume events from RabbitMQ.
+  (2) Parse payload, extract atomic claims.
+  (3) Create/update nodes and edges in Neo4j.
+  (4) Detect conflicts (same attribute, different values).
+  (5) Run link prediction algorithm on demand.
+  (6) Serve GraphQL API for frontend queries.
+
+GRAPH DATA MODEL (Neo4j):
+
+  Node Labels:
+    - :Fragment  (represents an account/identity source)
+    - :Claim     (atomic assertion: key-value pair)
+    - :Credential (signed document)
+    - :Context   (role or domain, e.g., "Employee at X")
+
+  Edge Types:
+    - :SUPPORTS       (Credential -> Claim)
+    - :CONTRADICTS    (Claim <-> Claim with conflicting values)
+    - :DERIVED_FROM   (Claim -> Credential it came from)
+    - :LIKELY_SAME    (Fragment ~ Fragment, probabilistic)
+    - :CONFIRMED_SAME (Fragment = Fragment, user-confirmed)
+    - :BELONGS_TO     (Fragment -> User root node)
+
+EXAMPLE CYPHER PATTERNS:
+
+  // Create Claim node
+  CREATE (c:Claim {
+    attribute: "email",
+    value: "test@example.com",
+    created_at: datetime()
+  })
+
+  // Link Claim to Credential
+  MATCH (cr:Credential {id: $cred_id}), (c:Claim {id: $claim_id})
+  CREATE (cr)-[:SUPPORTS]->(c)
+
+  // Find conflicts
+  MATCH (c1:Claim {attribute: $attr})-[:CONTRADICTS]-(c2:Claim)
+  WHERE c1.value <> c2.value
+  RETURN c1, c2
+
+LINK PREDICTION ALGORITHM:
+
+  Algorithm: Jaccard Similarity on Shared Attributes
+
+                   | A ∩ B |
+  Jaccard(A, B) = -----------
+                   | A ∪ B |
+
+  Where A and B are sets of (attribute, value) pairs for two Fragments.
+
+  Threshold: confidence >= 0.6 => suggest LIKELY_SAME edge.
+
+API ENDPOINTS (GraphQL):
+
+  type Query {
+    getIdentityGraph(userId: ID!): IdentityGraph
+    getNodeById(nodeId: ID!): GraphNode
+    suggestLinks(userId: ID!): [LinkSuggestion]
+    getAuditLog(userId: ID!): [IngestionEvent]
+  }
+
+  type Mutation {
+    confirmLink(sourceId: ID!, targetId: ID!): Boolean
+    rejectLink(sourceId: ID!, targetId: ID!): Boolean
+    markPreferred(claimId: ID!): Boolean
+  }
+
+--------------------------------------------------------------------------------
+
+4.3 FRONTEND DASHBOARD (Next.js)
+--------------------------------
+
+PURPOSE:
+  User-facing application for visualizing and managing the identity graph.
+
+TECHNOLOGY:
+  - Framework: Next.js 14 (React 18)
+  - Styling: Tailwind CSS
+  - Graph Viz: Cytoscape.js
+  - State: React Query (data fetching)
+
+PAGE STRUCTURE:
+
+  /                    -> Redirect to /dashboard
+  /login               -> Username/password form
+  /register            -> New user registration
+  /dashboard           -> Main graph visualization
+  /dashboard/upload    -> Upload modal (VC, OIDC)
+  /dashboard/conflicts -> List of detected conflicts
+  /dashboard/history   -> Audit log view
+
+GRAPH VISUALIZATION LAYOUT:
+
+  +-------------------------------------------------------------------+
+  |  TOOLBAR                                                          |
+  |  [Upload] [Refresh] [History] [Settings]                          |
+  +-------------------------------------------------------------------+
+  |                            |                                      |
+  |                            |  SIDEBAR                             |
+  |     GRAPH CANVAS           |  ---------                           |
+  |     (Cytoscape.js)         |  Selected Node:                      |
+  |                            |    Type: Claim                       |
+  |      o----o                |    Attribute: email                  |
+  |     /      \               |    Value: test@example.com           |
+  |    o        o----o         |    Created: 2024-01-15               |
+  |     \      /               |                                      |
+  |      o----o                |  [Edit] [Delete] [Link]              |
+  |                            |                                      |
+  +-------------------------------------------------------------------+
+  |  STATUS BAR: 127 nodes | 89 edges | Last sync: 2 min ago          |
+  +-------------------------------------------------------------------+
+
+NODE STYLING (by type):
+
+  +-----------+----------+--------+-----------------------------------+
+  |  Type     |  Shape   |  Color |  Description                      |
+  +-----------+----------+--------+-----------------------------------+
+  |  Fragment |  Hexagon | Blue   |  Represents an account/login      |
+  |  Claim    |  Circle  | Green  |  Atomic assertion                 |
+  |  Credential| Diamond | Purple |  Signed document                  |
+  |  Context  |  Square  | Orange |  Role or domain                   |
+  +-----------+----------+--------+-----------------------------------+
+
+EDGE STYLING (by type):
+
+  +--------------+------------+----------------------------------------+
+  |  Type        |  Style     |  Description                           |
+  +--------------+------------+----------------------------------------+
+  |  SUPPORTS    |  Solid     |  Credential proves this claim          |
+  |  CONTRADICTS |  Dashed Red|  Claims conflict with each other       |
+  |  LIKELY_SAME |  Dotted    |  Suggested link (not confirmed)        |
+  |  CONFIRMED   |  Solid Bold|  User-confirmed same-person link       |
+  +--------------+------------+----------------------------------------+
+
+--------------------------------------------------------------------------------
+
+4.4 DATA STORES
+---------------
+
+4.4.1 Neo4j (Graph Database)
+----------------------------
+VERSION: Neo4j Community 5.x
+
+PURPOSE: Store identity graph (nodes and edges).
+
+CONFIGURATION:
+  - Single node (for prototype; clustered for production).
+  - Bolt protocol on port 7687.
+  - Browser UI on port 7474 (dev only).
+
+INDEX STRATEGY:
+  - CREATE INDEX ON :Claim(attribute)
+  - CREATE INDEX ON :Fragment(source_id)
+  - CREATE INDEX ON :Credential(issuer)
+
+4.4.2 PostgreSQL (Audit Log)
+----------------------------
+VERSION: PostgreSQL 15
+
+PURPOSE: Immutable log of all ingestion events.
+
+CONFIGURATION:
+  - Single instance.
+  - Port 5432.
+  - Schema: uigs_audit
+
+BACKUP STRATEGY:
+  - pg_dump daily (cron job).
+  - WAL archiving for point-in-time recovery (production).
+
+4.4.3 RabbitMQ (Message Queue)
+------------------------------
+VERSION: RabbitMQ 3.12
+
+PURPOSE: Decouple Ingestion Service from Graph Engine.
+
+CONFIGURATION:
+  - Single node with management plugin.
+  - AMQP port 5672.
+  - Management UI port 15672.
+
+EXCHANGE/QUEUE:
+  - Exchange: identity.events (fanout)
+  - Queue: graph.engine.queue (durable)
+
+================================================================================
+5. DATA FLOW DIAGRAMS
+================================================================================
+
+5.1 CREDENTIAL INGESTION FLOW
+-----------------------------
+
+  +--------+     +---------------------+     +----------+     +---------+
+  |  User  | --> | Ingestion Service   | --> | RabbitMQ | --> | Graph   |
+  |        |     | (Go)                |     |          |     | Engine  |
+  +--------+     +----------+----------+     +----------+     +----+----+
+                            |                                      |
+                            v                                      v
+                      +-----+------+                         +-----+-----+
+                      | PostgreSQL |                         |   Neo4j   |
+                      | (Audit)    |                         |   (Graph) |
+                      +------------+                         +-----------+
+
+  STEPS:
+    1. User uploads VC via Dashboard or OIDC login.
+    2. Ingestion Service validates payload.
+    3. Ingestion Service writes to PostgreSQL (audit).
+    4. Ingestion Service publishes event to RabbitMQ.
+    5. Graph Engine consumes event.
+    6. Graph Engine parses claims, writes to Neo4j.
+
+5.2 GRAPH QUERY FLOW
+--------------------
+
+  +--------+     +---------------------+     +---------------+     +---------+
+  |  User  | --> | Frontend Dashboard  | --> | Graph Engine  | --> |  Neo4j  |
+  | (Browser)    | (Next.js)           |     | (Python)      |     |         |
+  +--------+     +---------------------+     +---------------+     +---------+
+
+  STEPS:
+    1. User opens Dashboard.
+    2. Frontend sends GraphQL query (getIdentityGraph).
+    3. Graph Engine executes Cypher query on Neo4j.
+    4. Neo4j returns nodes/edges.
+    5. Graph Engine formats response.
+    6. Frontend renders in Cytoscape.js.
+
+================================================================================
+6. DEPLOYMENT ARCHITECTURE
+================================================================================
+
+6.1 DEVELOPMENT (Docker Compose)
+--------------------------------
+
+File: docker-compose.yml
+
+  +-------------------------------------------------------------------+
+  |                      DOCKER HOST                                  |
+  |                                                                   |
+  |  +-------------+  +-------------+  +-------------+                |
+  |  | ingestion   |  | graph-engine|  | frontend    |                |
+  |  | (Go)        |  | (Python)    |  | (Next.js)   |                |
+  |  | Port: 8081  |  | Port: 8082  |  | Port: 3000  |                |
+  |  +------+------+  +------+------+  +------+------+                |
+  |         |                |                |                       |
+  |         +-------+--------+--------+-------+                       |
+  |                 |                 |                               |
+  |          +------+------+   +------+------+   +-------------+      |
+  |          |  rabbitmq   |   |   neo4j     |   |  postgres   |      |
+  |          |  Port: 5672 |   |  Port: 7687 |   |  Port: 5432 |      |
+  |          +-------------+   +-------------+   +-------------+      |
+  +-------------------------------------------------------------------+
+
+COMMAND: docker-compose up -d
+
+6.2 PRODUCTION (Kubernetes)
+---------------------------
+
+For production, Helm charts will be provided with:
+  - Deployments for each service (replicas configurable).
+  - Services (ClusterIP for internal, LoadBalancer for frontend).
+  - ConfigMaps for environment variables.
+  - Secrets for database credentials.
+  - PersistentVolumeClaims for Neo4j and PostgreSQL data.
+
+================================================================================
+7. TECHNOLOGY STACK SUMMARY
+================================================================================
+
++--------------------+-------------------+-------------------------------------+
+|  Layer             |  Technology       |  Justification                      |
++--------------------+-------------------+-------------------------------------+
+|  Ingestion Service |  Go 1.21, Gin     |  High throughput, low memory        |
++--------------------+-------------------+-------------------------------------+
+|  Graph Engine      |  Python 3.11,     |  Rich ecosystem for graph algos    |
+|                    |  FastAPI, NetworkX|  and ML (future link prediction)   |
++--------------------+-------------------+-------------------------------------+
+|  Frontend          |  Next.js 14,      |  Modern React, SSR, large ecosystem|
+|                    |  Tailwind, Cyto.  |                                     |
++--------------------+-------------------+-------------------------------------+
+|  Graph Database    |  Neo4j 5.x        |  Mature Cypher, graph algorithms   |
++--------------------+-------------------+-------------------------------------+
+|  Audit Database    |  PostgreSQL 15    |  ACID, JSONB, mature               |
++--------------------+-------------------+-------------------------------------+
+|  Message Queue     |  RabbitMQ 3.12    |  Simple, reliable, AMQP support    |
++--------------------+-------------------+-------------------------------------+
+|  Containerization  |  Docker, Compose  |  Ubiquitous, easy dev setup        |
++--------------------+-------------------+-------------------------------------+
+|  Orchestration     |  Kubernetes, Helm |  Production-grade scaling          |
++--------------------+-------------------+-------------------------------------+
+
+================================================================================
+8. SECURITY ARCHITECTURE
+================================================================================
+
+8.1 AUTHENTICATION
+------------------
+  - Dashboard login: Username/password stored with bcrypt hashing.
+  - OIDC integration: Tokens verified with public keys from IdP.
+
+8.2 AUTHORIZATION
+-----------------
+  - All graph data is scoped to user_id.
+  - Neo4j queries filtered by BELONGS_TO edge to user's root node.
+
+8.3 ENCRYPTION
+--------------
+  - In Transit: TLS 1.3 for all HTTPS and database connections.
+  - At Rest: 
+      - PostgreSQL: TDE (Transparent Data Encryption) or disk encryption.
+      - Neo4j: Disk-level encryption.
+
+8.4 THREAT MITIGATION
+---------------------
+
+  +---------------------------+---------------------------------------------+
+  |  Threat                   |  Mitigation                                 |
+  +---------------------------+---------------------------------------------+
+  |  Credential Theft         |  bcrypt + JWT short expiry (15 min)         |
+  |  SQL Injection            |  Parameterized queries (pgx)                |
+  |  XSS                      |  React auto-escapes; CSP headers            |
+  |  CSRF                     |  SameSite cookies; CSRF tokens              |
+  |  Data Breach              |  Encryption at rest; minimal data storage   |
+  +---------------------------+---------------------------------------------+
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================

@@ -1,0 +1,1184 @@
+================================================================================
+                    DETAILED IMPLEMENTATION PLAN
+           UNIFIED IDENTITY GRAPH SYSTEM (UIGS)
+================================================================================
+Document Version: 1.0
+Date: 2024-12-31
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. Project Structure
+2. Service Specifications
+   2.1 Ingestion Service (Go)
+   2.2 Graph Engine (Python)
+   2.3 Frontend Dashboard (Next.js)
+3. Data Specifications
+4. API Specifications
+5. Testing Strategy
+6. AI/ML Features
+7. UI/UX Design
+8. Verification & Validation
+
+================================================================================
+1. PROJECT STRUCTURE
+================================================================================
+
+REPOSITORY LAYOUT (Monorepo):
+
+uigs/
+├── docker-compose.yml
+├── docker-compose.prod.yml
+├── Makefile
+├── README.md
+├── .env.example
+├── .gitignore
+│
+├── docs/                           # Documentation
+│   ├── abstract.txt
+│   ├── introduction.txt
+│   ├── literature_survey_extended.txt
+│   ├── srs.txt
+│   ├── architecture_design.txt
+│   ├── project_phase_plan.txt
+│   └── implementation_plan.txt
+│
+├── services/
+│   ├── ingestion/                  # Go Ingestion Service
+│   │   ├── Dockerfile
+│   │   ├── go.mod
+│   │   ├── go.sum
+│   │   ├── main.go
+│   │   ├── cmd/
+│   │   │   └── server/
+│   │   │       └── main.go
+│   │   ├── internal/
+│   │   │   ├── config/
+│   │   │   │   └── config.go
+│   │   │   ├── handlers/
+│   │   │   │   ├── ingest.go
+│   │   │   │   ├── oidc.go
+│   │   │   │   └── health.go
+│   │   │   ├── models/
+│   │   │   │   ├── event.go
+│   │   │   │   └── credential.go
+│   │   │   ├── repository/
+│   │   │   │   └── postgres.go
+│   │   │   ├── queue/
+│   │   │   │   └── rabbitmq.go
+│   │   │   └── middleware/
+│   │   │       └── auth.go
+│   │   └── tests/
+│   │       ├── ingest_test.go
+│   │       └── integration_test.go
+│   │
+│   ├── graph-engine/               # Python Graph Engine
+│   │   ├── Dockerfile
+│   │   ├── pyproject.toml
+│   │   ├── requirements.txt
+│   │   ├── main.py
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py
+│   │   │   ├── consumer/
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── rabbitmq_consumer.py
+│   │   │   ├── graph/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── neo4j_client.py
+│   │   │   │   ├── decomposer.py
+│   │   │   │   ├── conflict_detector.py
+│   │   │   │   └── link_predictor.py
+│   │   │   ├── models/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── node.py
+│   │   │   │   ├── edge.py
+│   │   │   │   └── credential.py
+│   │   │   ├── api/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── graphql_schema.py
+│   │   │   │   └── resolvers.py
+│   │   │   └── ml/
+│   │   │       ├── __init__.py
+│   │   │       ├── feature_extractor.py
+│   │   │       └── similarity.py
+│   │   └── tests/
+│   │       ├── test_decomposer.py
+│   │       ├── test_conflict.py
+│   │       └── test_link_predictor.py
+│   │
+│   └── frontend/                   # Next.js Frontend
+│       ├── Dockerfile
+│       ├── package.json
+│       ├── tsconfig.json
+│       ├── tailwind.config.js
+│       ├── next.config.js
+│       ├── public/
+│       │   └── icons/
+│       ├── src/
+│       │   ├── app/
+│       │   │   ├── layout.tsx
+│       │   │   ├── page.tsx
+│       │   │   ├── login/
+│       │   │   │   └── page.tsx
+│       │   │   ├── dashboard/
+│       │   │   │   ├── page.tsx
+│       │   │   │   ├── upload/
+│       │   │   │   │   └── page.tsx
+│       │   │   │   └── conflicts/
+│       │   │   │       └── page.tsx
+│       │   │   └── api/
+│       │   │       └── auth/
+│       │   │           └── route.ts
+│       │   ├── components/
+│       │   │   ├── layout/
+│       │   │   │   ├── Header.tsx
+│       │   │   │   ├── Sidebar.tsx
+│       │   │   │   └── Footer.tsx
+│       │   │   ├── graph/
+│       │   │   │   ├── GraphCanvas.tsx
+│       │   │   │   ├── NodeDetails.tsx
+│       │   │   │   └── EdgeDetails.tsx
+│       │   │   ├── upload/
+│       │   │   │   ├── UploadModal.tsx
+│       │   │   │   └── ClaimPreview.tsx
+│       │   │   └── ui/
+│       │   │       ├── Button.tsx
+│       │   │       ├── Modal.tsx
+│       │   │       └── Card.tsx
+│       │   ├── lib/
+│       │   │   ├── graphql-client.ts
+│       │   │   ├── api-client.ts
+│       │   │   └── auth.ts
+│       │   ├── hooks/
+│       │   │   ├── useGraph.ts
+│       │   │   └── useAuth.ts
+│       │   └── types/
+│       │       ├── graph.ts
+│       │       └── user.ts
+│       └── tests/
+│           └── components/
+│
+├── infra/                          # Infrastructure
+│   ├── docker/
+│   │   ├── neo4j/
+│   │   │   └── neo4j.conf
+│   │   ├── postgres/
+│   │   │   └── init.sql
+│   │   └── rabbitmq/
+│   │       └── rabbitmq.conf
+│   └── k8s/
+│       ├── namespace.yaml
+│       ├── ingestion-deployment.yaml
+│       ├── graph-engine-deployment.yaml
+│       ├── frontend-deployment.yaml
+│       └── services.yaml
+│
+├── scripts/
+│   ├── setup.sh
+│   ├── seed-data.sh
+│   └── run-tests.sh
+│
+└── data/
+    └── samples/
+        ├── vc-university-degree.json
+        ├── vc-government-id.json
+        └── vc-employment.json
+
+================================================================================
+2. SERVICE SPECIFICATIONS
+================================================================================
+
+2.1 INGESTION SERVICE (Go)
+--------------------------
+
+PACKAGE: services/ingestion
+
++-----------------------------------------------------------------------------+
+|  FILE: internal/models/event.go                                             |
++-----------------------------------------------------------------------------+
+
+  package models
+
+  type IngestionEvent struct {
+      EventID     string    `json:"event_id" db:"event_id"`
+      UserID      string    `json:"user_id" db:"user_id"`
+      SourceType  string    `json:"source_type" db:"source_type"`  // VC, OIDC, MANUAL
+      RawPayload  []byte    `json:"raw_payload" db:"raw_payload"`
+      CreatedAt   time.Time `json:"created_at" db:"created_at"`
+  }
+
+  // SourceType constants
+  const (
+      SourceTypeVC     = "VC"
+      SourceTypeOIDC   = "OIDC"
+      SourceTypeManual = "MANUAL"
+  )
+
++-----------------------------------------------------------------------------+
+|  FILE: internal/models/credential.go                                        |
++-----------------------------------------------------------------------------+
+
+  package models
+
+  type VerifiableCredential struct {
+      Context           []string               `json:"@context"`
+      Type              []string               `json:"type"`
+      Issuer            string                 `json:"issuer"`
+      IssuanceDate      string                 `json:"issuanceDate"`
+      CredentialSubject map[string]interface{} `json:"credentialSubject"`
+      Proof             Proof                  `json:"proof,omitempty"`
+  }
+
+  type Proof struct {
+      Type               string `json:"type"`
+      Created            string `json:"created"`
+      VerificationMethod string `json:"verificationMethod"`
+      ProofValue         string `json:"proofValue"`
+  }
+
++-----------------------------------------------------------------------------+
+|  FILE: internal/handlers/ingest.go                                          |
++-----------------------------------------------------------------------------+
+
+  package handlers
+
+  type IngestHandler struct {
+      repo    repository.EventRepository
+      queue   queue.Publisher
+      logger  *slog.Logger
+  }
+
+  func NewIngestHandler(repo repository.EventRepository, 
+                        queue queue.Publisher) *IngestHandler
+
+  // Methods:
+  func (h *IngestHandler) HandleIngest(c *gin.Context)
+      // POST /api/v1/ingest
+      // Input: JSON body (VC or manual claim)
+      // Output: { "event_id": "uuid", "status": "accepted" }
+      // Steps:
+      //   1. Parse JSON body
+      //   2. Validate structure
+      //   3. Generate event_id (UUID)
+      //   4. Store in PostgreSQL
+      //   5. Publish to RabbitMQ
+      //   6. Return 201 Created
+
+  func (h *IngestHandler) ValidateVC(vc *models.VerifiableCredential) error
+      // Validate JSON-LD structure
+      // Check required fields
+
++-----------------------------------------------------------------------------+
+|  FILE: internal/handlers/oidc.go                                            |
++-----------------------------------------------------------------------------+
+
+  package handlers
+
+  type OIDCHandler struct {
+      config   *config.OIDCConfig
+      repo     repository.EventRepository
+      queue    queue.Publisher
+  }
+
+  func NewOIDCHandler(config *config.OIDCConfig, 
+                      repo repository.EventRepository,
+                      queue queue.Publisher) *OIDCHandler
+
+  // Methods:
+  func (h *OIDCHandler) InitiateLogin(c *gin.Context)
+      // GET /auth/oidc/init?provider=google
+      // Redirect to provider authorization URL
+
+  func (h *OIDCHandler) HandleCallback(c *gin.Context)
+      // GET /auth/oidc/callback
+      // Input: code, state (query params)
+      // Steps:
+      //   1. Exchange code for tokens
+      //   2. Verify ID token
+      //   3. Extract claims
+      //   4. Create ingestion event
+      //   5. Publish to queue
+      //   6. Redirect to dashboard
+
++-----------------------------------------------------------------------------+
+|  FILE: internal/repository/postgres.go                                      |
++-----------------------------------------------------------------------------+
+
+  package repository
+
+  type PostgresRepository struct {
+      db *pgxpool.Pool
+  }
+
+  // Interface:
+  type EventRepository interface {
+      CreateEvent(ctx context.Context, event *models.IngestionEvent) error
+      GetEventsByUser(ctx context.Context, userID string) ([]models.IngestionEvent, error)
+      GetEventByID(ctx context.Context, eventID string) (*models.IngestionEvent, error)
+  }
+
+  func NewPostgresRepository(connString string) (*PostgresRepository, error)
+  func (r *PostgresRepository) CreateEvent(ctx, event) error
+  func (r *PostgresRepository) GetEventsByUser(ctx, userID) ([]models.IngestionEvent, error)
+
++-----------------------------------------------------------------------------+
+|  FILE: internal/queue/rabbitmq.go                                           |
++-----------------------------------------------------------------------------+
+
+  package queue
+
+  type RabbitMQPublisher struct {
+      conn    *amqp.Connection
+      channel *amqp.Channel
+      exchange string
+  }
+
+  // Interface:
+  type Publisher interface {
+      Publish(ctx context.Context, event *models.IngestionEvent) error
+      Close() error
+  }
+
+  func NewRabbitMQPublisher(url string, exchange string) (*RabbitMQPublisher, error)
+  func (p *RabbitMQPublisher) Publish(ctx, event) error
+  func (p *RabbitMQPublisher) Close() error
+
+--------------------------------------------------------------------------------
+
+2.2 GRAPH ENGINE (Python)
+-------------------------
+
+PACKAGE: services/graph-engine
+
++-----------------------------------------------------------------------------+
+|  FILE: app/models/node.py                                                   |
++-----------------------------------------------------------------------------+
+
+  from dataclasses import dataclass
+  from datetime import datetime
+  from typing import Optional, Dict, Any
+  from enum import Enum
+
+  class NodeType(Enum):
+      FRAGMENT = "Fragment"
+      CLAIM = "Claim"
+      CREDENTIAL = "Credential"
+      CONTEXT = "Context"
+      USER = "User"
+
+  @dataclass
+  class GraphNode:
+      node_id: str
+      node_type: NodeType
+      properties: Dict[str, Any]
+      created_at: datetime
+      expires_at: Optional[datetime] = None
+
+  @dataclass
+  class ClaimNode(GraphNode):
+      attribute: str
+      value: str
+      confidence: float = 1.0
+
+  @dataclass
+  class CredentialNode(GraphNode):
+      issuer: str
+      credential_type: str
+      issuance_date: datetime
+
++-----------------------------------------------------------------------------+
+|  FILE: app/models/edge.py                                                   |
++-----------------------------------------------------------------------------+
+
+  from dataclasses import dataclass
+  from datetime import datetime
+  from enum import Enum
+
+  class EdgeType(Enum):
+      SUPPORTS = "SUPPORTS"
+      CONTRADICTS = "CONTRADICTS"
+      DERIVED_FROM = "DERIVED_FROM"
+      LIKELY_SAME = "LIKELY_SAME"
+      CONFIRMED_SAME = "CONFIRMED_SAME"
+      BELONGS_TO = "BELONGS_TO"
+      TEMPORAL_SUCCESSOR = "TEMPORAL_SUCCESSOR"
+
+  @dataclass
+  class GraphEdge:
+      edge_id: str
+      edge_type: EdgeType
+      source_id: str
+      target_id: str
+      confidence: float = 1.0
+      created_at: datetime = None
+      properties: Dict[str, Any] = None
+
++-----------------------------------------------------------------------------+
+|  FILE: app/graph/neo4j_client.py                                            |
++-----------------------------------------------------------------------------+
+
+  class Neo4jClient:
+      def __init__(self, uri: str, user: str, password: str):
+          self.driver = GraphDatabase.driver(uri, auth=(user, password))
+
+      # Node Operations
+      def create_node(self, node: GraphNode) -> str
+      def get_node(self, node_id: str) -> Optional[GraphNode]
+      def update_node(self, node_id: str, properties: Dict) -> bool
+      def delete_node(self, node_id: str) -> bool
+
+      # Edge Operations
+      def create_edge(self, edge: GraphEdge) -> str
+      def get_edges_for_node(self, node_id: str) -> List[GraphEdge]
+      def delete_edge(self, edge_id: str) -> bool
+
+      # Query Operations
+      def get_user_graph(self, user_id: str) -> Dict[str, Any]
+      def find_conflicts(self, user_id: str) -> List[Tuple[ClaimNode, ClaimNode]]
+      def find_similar_fragments(self, user_id: str, threshold: float) -> List[Dict]
+
+      # Cypher Execution
+      def execute_cypher(self, query: str, params: Dict) -> List[Dict]
+
++-----------------------------------------------------------------------------+
+|  FILE: app/graph/decomposer.py                                              |
++-----------------------------------------------------------------------------+
+
+  class CredentialDecomposer:
+      """
+      Decomposes a Verifiable Credential into atomic graph nodes.
+      """
+
+      def __init__(self, neo4j_client: Neo4jClient):
+          self.client = neo4j_client
+
+      def decompose(self, event: IngestionEvent, user_id: str) -> DecompositionResult:
+          """
+          Input:  IngestionEvent containing a VC
+          Output: DecompositionResult with created nodes and edges
+
+          Steps:
+            1. Parse VC from event.raw_payload
+            2. Create CredentialNode for the VC
+            3. Extract claims from credentialSubject
+            4. For each claim:
+               a. Create ClaimNode (attribute, value)
+               b. Create SUPPORTS edge (Credential -> Claim)
+            5. Create FragmentNode for the source
+            6. Create DERIVED_FROM edges
+            7. Create BELONGS_TO edge to User
+            8. Return all created nodes and edges
+          """
+
+      def _extract_claims(self, credential_subject: Dict) -> List[Tuple[str, Any]]:
+          """Flatten nested JSON into (key, value) pairs."""
+
+      def _create_claim_node(self, attribute: str, value: Any) -> ClaimNode
+
+  @dataclass
+  class DecompositionResult:
+      credential_node: CredentialNode
+      claim_nodes: List[ClaimNode]
+      fragment_node: GraphNode
+      edges: List[GraphEdge]
+
++-----------------------------------------------------------------------------+
+|  FILE: app/graph/conflict_detector.py                                       |
++-----------------------------------------------------------------------------+
+
+  class ConflictDetector:
+      """
+      Detects conflicting claims in the identity graph.
+      """
+
+      def __init__(self, neo4j_client: Neo4jClient):
+          self.client = neo4j_client
+
+      def detect_conflicts(self, user_id: str, new_claims: List[ClaimNode]) -> List[Conflict]:
+          """
+          Input:  User ID and list of newly added claims
+          Output: List of detected conflicts
+
+          Steps:
+            1. For each new claim:
+               a. Query existing claims with same attribute
+               b. Compare values
+               c. If different, create Conflict object
+            2. Create CONTRADICTS edges in graph
+            3. Return conflict list
+          """
+
+      def resolve_conflict(self, conflict_id: str, preferred_claim_id: str) -> bool:
+          """Mark one claim as preferred, archive the other."""
+
+  @dataclass
+  class Conflict:
+      conflict_id: str
+      attribute: str
+      claim_a: ClaimNode
+      claim_b: ClaimNode
+      detected_at: datetime
+
++-----------------------------------------------------------------------------+
+|  FILE: app/graph/link_predictor.py                                          |
++-----------------------------------------------------------------------------+
+
+  class LinkPredictor:
+      """
+      Predicts likely identity links between disconnected fragments.
+      Uses Jaccard similarity on shared attributes.
+      """
+
+      def __init__(self, neo4j_client: Neo4jClient, threshold: float = 0.6):
+          self.client = neo4j_client
+          self.threshold = threshold
+
+      def predict_links(self, user_id: str) -> List[LinkSuggestion]:
+          """
+          Input:  User ID
+          Output: List of suggested links with confidence scores
+
+          Algorithm:
+            1. Get all Fragment nodes for user
+            2. For each pair of unconnected fragments:
+               a. Extract attribute sets A and B
+               b. Compute Jaccard: |A ∩ B| / |A ∪ B|
+               c. If Jaccard >= threshold, create suggestion
+            3. Sort by confidence descending
+            4. Return top N suggestions
+          """
+
+      def _jaccard_similarity(self, set_a: Set, set_b: Set) -> float:
+          intersection = len(set_a & set_b)
+          union = len(set_a | set_b)
+          return intersection / union if union > 0 else 0.0
+
+      def confirm_link(self, source_id: str, target_id: str) -> bool:
+          """Create CONFIRMED_SAME edge."""
+
+      def reject_link(self, source_id: str, target_id: str) -> bool:
+          """Mark pair as non-match (prevent future suggestions)."""
+
+  @dataclass
+  class LinkSuggestion:
+      source_fragment: GraphNode
+      target_fragment: GraphNode
+      confidence: float
+      shared_attributes: List[str]
+
++-----------------------------------------------------------------------------+
+|  FILE: app/consumer/rabbitmq_consumer.py                                    |
++-----------------------------------------------------------------------------+
+
+  class RabbitMQConsumer:
+      def __init__(self, url: str, queue: str, decomposer: CredentialDecomposer,
+                   conflict_detector: ConflictDetector):
+          self.url = url
+          self.queue = queue
+          self.decomposer = decomposer
+          self.conflict_detector = conflict_detector
+
+      async def start(self):
+          """Connect and start consuming messages."""
+
+      async def _process_message(self, message: aio_pika.IncomingMessage):
+          """
+          Steps:
+            1. Parse message body as IngestionEvent
+            2. Call decomposer.decompose()
+            3. Call conflict_detector.detect_conflicts()
+            4. Acknowledge message
+          """
+
+      async def stop(self):
+          """Gracefully shutdown consumer."""
+
++-----------------------------------------------------------------------------+
+|  FILE: app/api/graphql_schema.py                                            |
++-----------------------------------------------------------------------------+
+
+  # GraphQL Schema (Strawberry)
+
+  @strawberry.type
+  class GraphNodeType:
+      node_id: str
+      node_type: str
+      properties: JSON
+      created_at: datetime
+
+  @strawberry.type
+  class GraphEdgeType:
+      edge_id: str
+      edge_type: str
+      source_id: str
+      target_id: str
+      confidence: float
+
+  @strawberry.type
+  class IdentityGraph:
+      nodes: List[GraphNodeType]
+      edges: List[GraphEdgeType]
+
+  @strawberry.type
+  class LinkSuggestionType:
+      source_id: str
+      target_id: str
+      confidence: float
+      shared_attributes: List[str]
+
+  @strawberry.type
+  class ConflictType:
+      conflict_id: str
+      attribute: str
+      claim_a: GraphNodeType
+      claim_b: GraphNodeType
+
+  @strawberry.type
+  class Query:
+      @strawberry.field
+      def get_identity_graph(self, user_id: str) -> IdentityGraph
+
+      @strawberry.field
+      def get_node(self, node_id: str) -> Optional[GraphNodeType]
+
+      @strawberry.field
+      def get_conflicts(self, user_id: str) -> List[ConflictType]
+
+      @strawberry.field
+      def suggest_links(self, user_id: str) -> List[LinkSuggestionType]
+
+  @strawberry.type
+  class Mutation:
+      @strawberry.mutation
+      def confirm_link(self, source_id: str, target_id: str) -> bool
+
+      @strawberry.mutation
+      def reject_link(self, source_id: str, target_id: str) -> bool
+
+      @strawberry.mutation
+      def mark_preferred(self, claim_id: str) -> bool
+
+================================================================================
+
+2.3 FRONTEND DASHBOARD (Next.js)
+--------------------------------
+
+PACKAGE: services/frontend
+
++-----------------------------------------------------------------------------+
+|  FILE: src/types/graph.ts                                                   |
++-----------------------------------------------------------------------------+
+
+  export interface GraphNode {
+    nodeId: string;
+    nodeType: 'Fragment' | 'Claim' | 'Credential' | 'Context' | 'User';
+    properties: Record<string, unknown>;
+    createdAt: string;
+    expiresAt?: string;
+  }
+
+  export interface GraphEdge {
+    edgeId: string;
+    edgeType: 'SUPPORTS' | 'CONTRADICTS' | 'LIKELY_SAME' | 'CONFIRMED_SAME';
+    sourceId: string;
+    targetId: string;
+    confidence: number;
+  }
+
+  export interface IdentityGraph {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  }
+
+  export interface Conflict {
+    conflictId: string;
+    attribute: string;
+    claimA: GraphNode;
+    claimB: GraphNode;
+  }
+
+  export interface LinkSuggestion {
+    sourceId: string;
+    targetId: string;
+    confidence: number;
+    sharedAttributes: string[];
+  }
+
++-----------------------------------------------------------------------------+
+|  FILE: src/components/graph/GraphCanvas.tsx                                 |
++-----------------------------------------------------------------------------+
+
+  interface GraphCanvasProps {
+    graph: IdentityGraph;
+    onNodeSelect: (node: GraphNode) => void;
+    onEdgeSelect: (edge: GraphEdge) => void;
+  }
+
+  export const GraphCanvas: React.FC<GraphCanvasProps> = ({ graph, onNodeSelect }) => {
+    // Uses Cytoscape.js for rendering
+    // - Force-directed layout (cose-bilkent)
+    // - Node colors by type (Fragment=blue, Claim=green, etc.)
+    // - Edge styles (solid, dashed for conflicts)
+    // - Click handlers for selection
+  }
+
+  // Cytoscape Style Configuration
+  const cytoscapeStyles = [
+    { selector: 'node[type="Fragment"]', style: { 'background-color': '#3B82F6', shape: 'hexagon' }},
+    { selector: 'node[type="Claim"]', style: { 'background-color': '#10B981', shape: 'ellipse' }},
+    { selector: 'node[type="Credential"]', style: { 'background-color': '#8B5CF6', shape: 'diamond' }},
+    { selector: 'edge[type="CONTRADICTS"]', style: { 'line-color': '#EF4444', 'line-style': 'dashed' }},
+    { selector: 'edge[type="LIKELY_SAME"]', style: { 'line-color': '#F59E0B', 'line-style': 'dotted' }},
+  ];
+
++-----------------------------------------------------------------------------+
+|  FILE: src/components/upload/UploadModal.tsx                                |
++-----------------------------------------------------------------------------+
+
+  interface UploadModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onUpload: (file: File) => Promise<void>;
+  }
+
+  export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onUpload }) => {
+    // Steps:
+    // 1. File input (accept .json)
+    // 2. Parse and preview claims
+    // 3. Confirm button -> POST to /api/v1/ingest
+    // 4. Show success/error toast
+  }
+
++-----------------------------------------------------------------------------+
+|  FILE: src/hooks/useGraph.ts                                                |
++-----------------------------------------------------------------------------+
+
+  export function useGraph(userId: string) {
+    // React Query hook for fetching identity graph
+
+    const { data, isLoading, refetch } = useQuery({
+      queryKey: ['identity-graph', userId],
+      queryFn: () => graphqlClient.request(GET_IDENTITY_GRAPH, { userId })
+    });
+
+    const confirmLink = useMutation({
+      mutationFn: ({ sourceId, targetId }) => 
+        graphqlClient.request(CONFIRM_LINK, { sourceId, targetId }),
+      onSuccess: () => refetch()
+    });
+
+    return { graph: data, isLoading, refetch, confirmLink };
+  }
+
++-----------------------------------------------------------------------------+
+|  FILE: src/lib/graphql-client.ts                                            |
++-----------------------------------------------------------------------------+
+
+  import { GraphQLClient } from 'graphql-request';
+
+  export const graphqlClient = new GraphQLClient(
+    process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:8082/graphql'
+  );
+
+  // Queries
+  export const GET_IDENTITY_GRAPH = gql\`
+    query GetIdentityGraph($userId: String!) {
+      getIdentityGraph(userId: $userId) {
+        nodes { nodeId nodeType properties createdAt }
+        edges { edgeId edgeType sourceId targetId confidence }
+      }
+    }
+  \`;
+
+  export const GET_CONFLICTS = gql\`
+    query GetConflicts($userId: String!) {
+      getConflicts(userId: $userId) {
+        conflictId attribute claimA { nodeId properties } claimB { nodeId properties }
+      }
+    }
+  \`;
+
+  // Mutations
+  export const CONFIRM_LINK = gql\`
+    mutation ConfirmLink($sourceId: String!, $targetId: String!) {
+      confirmLink(sourceId: $sourceId, targetId: $targetId)
+    }
+  \`;
+
+================================================================================
+3. DATA SPECIFICATIONS
+================================================================================
+
+3.1 INPUT DATA FORMATS
+----------------------
+
+VERIFIABLE CREDENTIAL (W3C JSON-LD):
+
+  {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://example.org/contexts/alumni/v1"
+    ],
+    "type": ["VerifiableCredential", "AlumniCredential"],
+    "issuer": "did:example:university",
+    "issuanceDate": "2024-01-15T00:00:00Z",
+    "credentialSubject": {
+      "id": "did:example:student123",
+      "name": "John Doe",
+      "degree": "Bachelor of Science",
+      "major": "Computer Science",
+      "graduationDate": "2024-05-15"
+    },
+    "proof": {
+      "type": "Ed25519Signature2020",
+      "created": "2024-01-15T00:00:00Z",
+      "verificationMethod": "did:example:university#key-1",
+      "proofValue": "z..."
+    }
+  }
+
+OIDC ID TOKEN (Google):
+
+  {
+    "iss": "https://accounts.google.com",
+    "sub": "1234567890",
+    "email": "user@gmail.com",
+    "email_verified": true,
+    "name": "John Doe",
+    "picture": "https://...",
+    "iat": 1704067200,
+    "exp": 1704070800
+  }
+
+3.2 OUTPUT DATA FORMATS
+-----------------------
+
+GRAPH QUERY RESPONSE:
+
+  {
+    "nodes": [
+      {
+        "nodeId": "n-001",
+        "nodeType": "Credential",
+        "properties": { "issuer": "University X", "type": "Degree" },
+        "createdAt": "2024-01-15T00:00:00Z"
+      },
+      {
+        "nodeId": "n-002",
+        "nodeType": "Claim",
+        "properties": { "attribute": "name", "value": "John Doe" },
+        "createdAt": "2024-01-15T00:00:00Z"
+      }
+    ],
+    "edges": [
+      {
+        "edgeId": "e-001",
+        "edgeType": "SUPPORTS",
+        "sourceId": "n-001",
+        "targetId": "n-002",
+        "confidence": 1.0
+      }
+    ]
+  }
+
+================================================================================
+4. API SPECIFICATIONS
+================================================================================
+
+4.1 INGESTION SERVICE REST API
+------------------------------
+
+  +------------------+--------+------------------------------------------------+
+  |  Endpoint        | Method |  Request/Response                              |
+  +------------------+--------+------------------------------------------------+
+  |  /api/v1/ingest  | POST   |  Request: { VC JSON or manual claim }          |
+  |                  |        |  Response: { event_id: "uuid", status: "ok" }  |
+  |                  |        |  Status: 201 Created                           |
+  +------------------+--------+------------------------------------------------+
+  |  /auth/oidc/init | GET    |  Query: ?provider=google                       |
+  |                  |        |  Response: 302 Redirect to IdP                 |
+  +------------------+--------+------------------------------------------------+
+  |  /auth/oidc/cb   | GET    |  Query: ?code=xxx&state=yyy                    |
+  |                  |        |  Response: 302 Redirect to dashboard           |
+  +------------------+--------+------------------------------------------------+
+  |  /health         | GET    |  Response: { status: "healthy" }               |
+  +------------------+--------+------------------------------------------------+
+
+4.2 GRAPH ENGINE GraphQL API
+----------------------------
+
+  Endpoint: POST /graphql
+
+  QUERIES:
+    - getIdentityGraph(userId: String!): IdentityGraph
+    - getNode(nodeId: String!): GraphNode
+    - getConflicts(userId: String!): [Conflict]
+    - suggestLinks(userId: String!): [LinkSuggestion]
+    - getAuditLog(userId: String!): [IngestionEvent]
+
+  MUTATIONS:
+    - confirmLink(sourceId: String!, targetId: String!): Boolean
+    - rejectLink(sourceId: String!, targetId: String!): Boolean
+    - markPreferred(claimId: String!): Boolean
+    - deleteNode(nodeId: String!): Boolean
+
+================================================================================
+5. TESTING STRATEGY
+================================================================================
+
+5.1 UNIT TESTS
+--------------
+
+  +----------------------------+---------------------------------------------+
+  |  Component                 |  Test Cases                                 |
+  +----------------------------+---------------------------------------------+
+  |  CredentialDecomposer      |  - Parse valid VC                           |
+  |                            |  - Extract nested claims                    |
+  |                            |  - Handle missing fields gracefully         |
+  +----------------------------+---------------------------------------------+
+  |  ConflictDetector          |  - Detect same-attr different-value         |
+  |                            |  - No conflict when values match            |
+  |                            |  - Multiple conflicts for same attr         |
+  +----------------------------+---------------------------------------------+
+  |  LinkPredictor             |  - Jaccard = 0 for disjoint sets            |
+  |                            |  - Jaccard = 1 for identical sets           |
+  |                            |  - Threshold filtering works                |
+  +----------------------------+---------------------------------------------+
+  |  Go IngestHandler          |  - Valid VC returns 201                     |
+  |                            |  - Invalid JSON returns 400                 |
+  |                            |  - Event stored in Postgres                 |
+  +----------------------------+---------------------------------------------+
+
+5.2 INTEGRATION TESTS
+---------------------
+
+  TEST: End-to-End Ingestion Flow
+    Setup: Docker Compose with all services
+    Steps:
+      1. POST /api/v1/ingest with sample VC
+      2. Wait for message processing (2s)
+      3. Query GraphQL for user graph
+      4. Assert: New nodes exist in graph
+
+  TEST: Conflict Detection Flow
+    Setup: Graph with existing claim (DOB = 1990-01-01)
+    Steps:
+      1. POST VC with conflicting DOB (1991-02-02)
+      2. Query getConflicts()
+      3. Assert: Conflict returned with both claims
+
+  TEST: OIDC Login Flow
+    Setup: Mock OIDC provider
+    Steps:
+      1. GET /auth/oidc/init?provider=mock
+      2. Complete mock auth flow
+      3. Assert: Token stored, event created
+
+5.3 TEST DATA (samples/)
+------------------------
+
+  vc-university-degree.json   - Valid university credential
+  vc-government-id.json       - Government ID with photo
+  vc-employment.json          - Employment verification
+  vc-conflicting-dob.json     - VC with different DOB (for conflict tests)
+
+================================================================================
+6. AI/ML FEATURES
+================================================================================
+
+6.1 LINK PREDICTION (Phase 4)
+-----------------------------
+
+  ALGORITHM: Jaccard Similarity + Feature Weighting
+
+  INPUTS:
+    - Fragment A: List of (attribute, value) pairs
+    - Fragment B: List of (attribute, value) pairs
+
+  FEATURE WEIGHTS:
+    +--------------------+--------+------------------------------------------+
+    |  Attribute         | Weight |  Rationale                               |
+    +--------------------+--------+------------------------------------------+
+    |  email             |  0.9   |  Highly unique identifier                |
+    |  phone             |  0.8   |  Often shared within household           |
+    |  name              |  0.3   |  Common names have collisions            |
+    |  address           |  0.5   |  May share address with family           |
+    |  dob               |  0.4   |  Used for matching but not unique        |
+    +--------------------+--------+------------------------------------------+
+
+  FORMULA:
+    weighted_jaccard = Σ(weight_i * match_i) / Σ(weight_i)
+
+  TRAINING DATA (Future):
+    - Synthetic dataset of matched/unmatched identity pairs
+    - Ground truth from manual user confirmations
+    - Features: attribute overlap, edit distance, temporal proximity
+
+6.2 FUTURE ML ENHANCEMENTS
+--------------------------
+
+  (a) Graph Neural Network for Link Prediction
+      - Model: GraphSAGE or GAT
+      - Input: Node embeddings from attribute values
+      - Output: Edge probability (same/different person)
+      - Training: User-confirmed links as labels
+
+  (b) Anomaly Detection for Suspicious Claims
+      - Detect unusual claim patterns (e.g., 10 degrees in 1 year)
+      - Flag potential identity fraud
+
+  (c) Natural Language Matching for Addresses
+      - Use NLP to normalize and match addresses
+      - Handle abbreviations, typos, format variations
+
+6.3 ML TRAINING PIPELINE (Future)
+---------------------------------
+
+  DATASET GENERATION:
+    1. Export confirmed links from Neo4j
+    2. Create positive pairs (confirmed same)
+    3. Create negative pairs (random non-linked fragments)
+    4. Split: 80% train, 10% val, 10% test
+
+  MODEL TRAINING:
+    Framework: PyTorch + PyTorch Geometric
+    Epochs: 100
+    Optimizer: Adam (lr=0.001)
+    Loss: Binary Cross-Entropy
+
+  EVALUATION METRICS:
+    - Precision @ k (top-k suggestions)
+    - Recall @ k
+    - AUC-ROC
+
+================================================================================
+7. UI/UX DESIGN
+================================================================================
+
+7.1 DESIGN PRINCIPLES
+---------------------
+  - Clarity: Graph should be immediately understandable
+  - Control: User always has final say on identity links
+  - Feedback: Visual confirmation of actions
+  - Privacy: Sensitive data masked by default
+
+7.2 COLOR PALETTE
+-----------------
+  Primary:    #3B82F6 (Blue)     - Actions, Fragment nodes
+  Secondary:  #10B981 (Green)    - Success, Claim nodes
+  Accent:     #8B5CF6 (Purple)   - Credentials, highlights
+  Warning:    #F59E0B (Amber)    - Suggestions, pending
+  Danger:     #EF4444 (Red)      - Conflicts, errors
+  Background: #0F172A (Dark)     - Main canvas
+  Surface:    #1E293B (Dark+)    - Cards, sidebars
+  Text:       #F8FAFC (Light)    - Primary text
+
+7.3 PAGE LAYOUTS
+----------------
+
+  LOGIN PAGE:
+  +-------------------------------------------+
+  |              UIGS Logo                    |
+  |                                           |
+  |  +-------------------------------------+  |
+  |  |  Username: [________________]       |  |
+  |  |  Password: [________________]       |  |
+  |  |                                     |  |
+  |  |  [      Login      ]                |  |
+  |  |                                     |  |
+  |  |  Don't have an account? Register   |  |
+  |  +-------------------------------------+  |
+  +-------------------------------------------+
+
+  DASHBOARD:
+  +-------------------------------------------+
+  |  [Logo]  Dashboard   [Upload] [Settings]  |  <- Header
+  +--------+----------------------------------+
+  |        |                                  |
+  | SIDEBAR|       GRAPH CANVAS               |
+  |        |                                  |
+  | Nodes  |       o----o                     |
+  | (127)  |      /      \                    |
+  |        |     o        o----o              |
+  | Edges  |      \      /                    |
+  | (89)   |       o----o                     |
+  |        |                                  |
+  | ---    |                                  |
+  |        |                                  |
+  | Select |  Selected: [Claim: email]        |  <- Details Panel
+  | Node   |  Value: user@example.com         |
+  |        |  Created: 2024-01-15             |
+  +--------+----------------------------------+
+
+  CONFLICT PANEL:
+  +-------------------------------------------+
+  |  Conflicts (2)                            |
+  +-------------------------------------------+
+  |  ! Date of Birth                          |
+  |    Claim A: 1990-01-15 (Univ VC)          |
+  |    Claim B: 1991-02-20 (Gov ID)           |
+  |    [ Mark A Preferred ] [ Mark B ]        |
+  +-------------------------------------------+
+
+================================================================================
+8. VERIFICATION & VALIDATION
+================================================================================
+
+8.1 VERIFICATION (Building the Product Right)
+----------------------------------------------
+
+  +---------------------+------------------------------------------------+
+  |  Activity           |  Method                                        |
+  +---------------------+------------------------------------------------+
+  |  Code Review        |  Self-review before commit                     |
+  |  Static Analysis    |  golint, ruff, eslint                          |
+  |  Unit Testing       |  pytest (Python), go test (Go), jest (TS)      |
+  |  Integration Test   |  Docker Compose test suite                     |
+  |  Security Scan      |  Trivy for container vulnerabilities           |
+  +---------------------+------------------------------------------------+
+
+8.2 VALIDATION (Building the Right Product)
+--------------------------------------------
+
+  +---------------------+------------------------------------------------+
+  |  Requirement        |  Validation Method                             |
+  +---------------------+------------------------------------------------+
+  |  FR-01: Accept VCs  |  Manual test: Upload sample VC                 |
+  |  FR-05: Detect      |  Manual test: Upload conflicting VCs           |
+  |         Conflicts   |                                                |
+  |  FR-07: Link        |  Manual test: Check suggestions appear         |
+  |         Prediction  |                                                |
+  |  FR-09: Graph Viz   |  Visual inspection of dashboard                |
+  |  NF-01: Performance |  Load test: Query 10k-node graph < 500ms       |
+  |  NF-04: Privacy     |  Code review: No external data transmission    |
+  +---------------------+------------------------------------------------+
+
+8.3 ACCEPTANCE TESTING CHECKLIST
+--------------------------------
+
+  Phase 1:
+    [ ] docker-compose up starts all services
+    [ ] POST /ingest returns 201
+    [ ] Event visible in PostgreSQL
+    [ ] Message in RabbitMQ queue
+
+  Phase 2:
+    [ ] VCs create nodes in Neo4j
+    [ ] Conflicts create CONTRADICTS edges
+    [ ] GraphQL queries return valid data
+
+  Phase 3:
+    [ ] Login page functional
+    [ ] Graph renders in browser
+    [ ] Upload modal works
+    [ ] Conflicts displayed
+
+  Phase 4:
+    [ ] Link suggestions appear
+    [ ] Confirm/reject links work
+    [ ] K8s deployment succeeds
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================

@@ -1,0 +1,496 @@
+================================================================================
+                            SETUP GUIDE
+           UNIFIED IDENTITY GRAPH SYSTEM (UIGS)
+           Prerequisites and Configuration
+================================================================================
+Document Version: 1.0
+Date: 2024-12-31
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. System Requirements
+2. Required Software
+3. Installation Instructions
+4. Configuration Steps
+5. Verification
+6. Quick Start Commands
+
+================================================================================
+1. SYSTEM REQUIREMENTS
+================================================================================
+
+MINIMUM HARDWARE:
+  - CPU: 4 cores (8 recommended)
+  - RAM: 8GB (16GB recommended)
+  - Disk: 20GB free space
+  - OS: Linux (Ubuntu 20.04+ / Fedora 35+) or macOS
+
+SUPPORTED PLATFORMS:
+  - ✓ Linux (Ubuntu, Debian, Fedora, Arch)
+  - ✓ macOS (Intel or Apple Silicon)
+  - ✓ Windows (via WSL2)
+
+================================================================================
+2. REQUIRED SOFTWARE
+================================================================================
+
+CORE RUNTIME ENVIRONMENTS:
+
++-------------------+----------+------------------------------------------+
+|  Software         | Version  |  Purpose                                 |
++-------------------+----------+------------------------------------------+
+|  Docker           | 24.x+    |  Container runtime                       |
+|  Docker Compose   | 2.x+     |  Multi-container orchestration           |
+|  Go               | 1.21+    |  Ingestion service development           |
+|  Python           | 3.11+    |  Graph engine development                |
+|  Node.js          | 20.x LTS |  Frontend development                    |
+|  npm / pnpm       | 10.x+    |  JavaScript package manager              |
+|  Git              | 2.x+     |  Version control                         |
++-------------------+----------+------------------------------------------+
+
+DEVELOPMENT TOOLS (Recommended):
+
++-------------------+------------------------------------------+
+|  Tool             |  Purpose                                 |
++-------------------+------------------------------------------+
+|  VS Code          |  Code editor (with extensions)           |
+|  curl / Postman   |  API testing                             |
+|  make             |  Build automation                        |
++-------------------+------------------------------------------+
+
+================================================================================
+3. INSTALLATION INSTRUCTIONS
+================================================================================
+
+3.1 DOCKER & DOCKER COMPOSE
+---------------------------
+
+Ubuntu/Debian:
+--------------
+  sudo apt-get update
+  sudo apt-get install -y docker.io docker-compose-v2
+  sudo systemctl start docker
+  sudo systemctl enable docker
+  sudo usermod -aG docker $USER
+  # Log out and log back in for group changes to take effect
+
+Fedora:
+-------
+  sudo dnf install -y docker docker-compose
+  sudo systemctl start docker
+  sudo systemctl enable docker
+  sudo usermod -aG docker $USER
+
+macOS:
+------
+  # Install Docker Desktop from: https://www.docker.com/products/docker-desktop
+  # Docker Compose is included with Docker Desktop
+
+Verification:
+-------------
+  docker --version          # Should show: Docker version 24.x.x
+  docker compose version    # Should show: v2.x.x
+
+--------------------------------------------------------------------------------
+
+3.2 GO
+------
+
+Ubuntu/Debian/Fedora:
+---------------------
+  # Download and install
+  wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
+  sudo rm -rf /usr/local/go
+  sudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
+  
+  # Add to PATH (add to ~/.bashrc or ~/.zshrc)
+  export PATH=$PATH:/usr/local/go/bin
+  export GOPATH=$HOME/go
+  export PATH=$PATH:$GOPATH/bin
+  
+  # Reload shell
+  source ~/.bashrc  # or source ~/.zshrc
+
+macOS:
+------
+  # Using Homebrew
+  brew install go@1.21
+
+Verification:
+-------------
+  go version    # Should show: go1.21.x
+
+--------------------------------------------------------------------------------
+
+3.3 PYTHON
+----------
+
+Ubuntu/Debian:
+--------------
+  sudo apt-get update
+  sudo apt-get install -y python3.11 python3.11-venv python3-pip
+
+Fedora:
+-------
+  sudo dnf install -y python3.11 python3-pip
+
+macOS:
+------
+  # Using Homebrew
+  brew install python@3.11
+
+Verification:
+-------------
+  python3 --version    # Should show: Python 3.11.x
+  pip3 --version
+
+--------------------------------------------------------------------------------
+
+3.4 NODE.JS & NPM
+-----------------
+
+Ubuntu/Debian/Fedora:
+---------------------
+  # Using NodeSource repository
+  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+  sudo apt-get install -y nodejs  # or sudo dnf install nodejs
+
+  # OR using NVM (recommended for version flexibility)
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+  source ~/.bashrc
+  nvm install 20
+  nvm use 20
+
+macOS:
+------
+  # Using Homebrew
+  brew install node@20
+
+  # OR using NVM
+  brew install nvm
+  nvm install 20
+
+Verification:
+-------------
+  node --version    # Should show: v20.x.x
+  npm --version     # Should show: 10.x.x
+
+--------------------------------------------------------------------------------
+
+3.5 GIT
+-------
+
+Ubuntu/Debian:
+--------------
+  sudo apt-get install -y git
+
+Fedora:
+-------
+  sudo dnf install -y git
+
+macOS:
+------
+  # Usually pre-installed, or via Xcode Command Line Tools
+  xcode-select --install
+  # OR via Homebrew
+  brew install git
+
+Verification:
+-------------
+  git --version
+
+Configuration (First-time setup):
+---------------------------------
+  git config --global user.name "Your Name"
+  git config --global user.email "your.email@example.com"
+
+================================================================================
+4. CONFIGURATION STEPS
+================================================================================
+
+4.1 PROJECT INITIALIZATION
+--------------------------
+
+Step 1: Navigate to project directory
+--------------------------------------
+  cd /home/deepak/Desktop/Digital-Identity-Fragmentation
+
+Step 2: Initialize Git repository (if not already done)
+-------------------------------------------------------
+  git init
+  git add .
+  git commit -m "Initial commit: Project documentation"
+
+Step 3: Create .env file for environment variables
+--------------------------------------------------
+  cat > .env << 'EOF'
+# Database Credentials
+POSTGRES_USER=uigs_user
+POSTGRES_PASSWORD=uigs_password_2024
+POSTGRES_DB=uigs_audit
+
+# Neo4j Credentials
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=neo4j_password_2024
+
+# RabbitMQ Credentials
+RABBITMQ_USER=uigs_rabbit
+RABBITMQ_PASSWORD=rabbit_password_2024
+
+# Service Ports
+INGESTION_PORT=8081
+GRAPH_ENGINE_PORT=8082
+FRONTEND_PORT=3000
+
+# OIDC Configuration (Google - create at https://console.cloud.google.com)
+GOOGLE_CLIENT_ID=your_google_client_id_here
+GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+GOOGLE_REDIRECT_URI=http://localhost:8081/auth/oidc/callback
+
+# OIDC Configuration (GitHub - create at https://github.com/settings/developers)
+GITHUB_CLIENT_ID=your_github_client_id_here
+GITHUB_CLIENT_SECRET=your_github_client_secret_here
+GITHUB_REDIRECT_URI=http://localhost:8081/auth/oidc/callback
+
+# JWT Secret (generate with: openssl rand -hex 32)
+JWT_SECRET=your_jwt_secret_here
+
+# Environment
+NODE_ENV=development
+GO_ENV=development
+EOF
+
+Step 4: Generate secure secrets
+-------------------------------
+  # Generate JWT secret
+  openssl rand -hex 32
+
+  # Copy output and update JWT_SECRET in .env file
+
+--------------------------------------------------------------------------------
+
+4.2 OIDC PROVIDER SETUP (Optional - for Phase 1)
+------------------------------------------------
+
+GOOGLE OAUTH:
+-------------
+  1. Go to: https://console.cloud.google.com/
+  2. Create new project: "UIGS Development"
+  3. Enable APIs: Google+ API
+  4. Create OAuth 2.0 credentials:
+     - Application type: Web application
+     - Name: UIGS Local Dev
+     - Authorized redirect URIs: http://localhost:8081/auth/oidc/callback
+  5. Copy Client ID and Client Secret to .env
+
+GITHUB OAUTH:
+-------------
+  1. Go to: https://github.com/settings/developers
+  2. Click "New OAuth App"
+  3. Fill in:
+     - Application name: UIGS Development
+     - Homepage URL: http://localhost:3000
+     - Authorization callback URL: http://localhost:8081/auth/oidc/callback
+  4. Copy Client ID and Client Secret to .env
+
+--------------------------------------------------------------------------------
+
+4.3 VS CODE SETUP (Recommended Extensions)
+------------------------------------------
+
+Install recommended extensions:
+-------------------------------
+  # Go
+  code --install-extension golang.go
+
+  # Python
+  code --install-extension ms-python.python
+  code --install-extension ms-python.vscode-pylance
+
+  # JavaScript/TypeScript
+  code --install-extension dbaeumer.vscode-eslint
+  code --install-extension esbenp.prettier-vscode
+
+  # Docker
+  code --install-extension ms-azuretools.vscode-docker
+
+  # GraphQL
+  code --install-extension graphql.vscode-graphql
+
+Create .vscode/settings.json:
+-----------------------------
+  mkdir -p .vscode
+  cat > .vscode/settings.json << 'EOF'
+{
+  "go.formatTool": "gofmt",
+  "go.lintTool": "golangci-lint",
+  "python.linting.enabled": true,
+  "python.linting.ruffEnabled": true,
+  "python.formatting.provider": "black",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true
+  }
+}
+EOF
+
+================================================================================
+5. VERIFICATION
+================================================================================
+
+5.1 VERIFY ALL INSTALLATIONS
+----------------------------
+
+Run this verification script:
+-----------------------------
+  cat > verify_setup.sh << 'EOF'
+#!/bin/bash
+
+echo "========================================="
+echo "UIGS Setup Verification"
+echo "========================================="
+echo ""
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+check_command() {
+    if command -v $1 &> /dev/null; then
+        echo -e "${GREEN}✓${NC} $1: $(command -v $1)"
+        $1 --version 2>&1 | head -n 1
+    else
+        echo -e "${RED}✗${NC} $1: NOT FOUND"
+    fi
+    echo ""
+}
+
+echo "Checking core tools..."
+check_command docker
+check_command "docker compose"
+check_command go
+check_command python3
+check_command node
+check_command npm
+check_command git
+
+echo "========================================="
+echo "Docker Services Test"
+echo "========================================="
+docker info &> /dev/null
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓${NC} Docker daemon is running"
+else
+    echo -e "${RED}✗${NC} Docker daemon is NOT running"
+    echo "  Start with: sudo systemctl start docker"
+fi
+
+echo ""
+echo "========================================="
+echo "Verification Complete"
+echo "========================================="
+EOF
+
+  chmod +x verify_setup.sh
+  ./verify_setup.sh
+
+Expected output should show ✓ for all tools.
+
+--------------------------------------------------------------------------------
+
+5.2 TEST DOCKER SETUP
+---------------------
+
+Pull required images (optional - will be auto-pulled by docker-compose):
+------------------------------------------------------------------------
+  docker pull neo4j:5.15-community
+  docker pull postgres:15-alpine
+  docker pull rabbitmq:3.12-management-alpine
+
+Test Docker Compose:
+-------------------
+  # This will be created in Phase 1, but you can verify compose works:
+  docker compose version
+
+================================================================================
+6. QUICK START COMMANDS
+================================================================================
+
+AFTER COMPLETING PHASE 1 IMPLEMENTATION, YOU WILL USE:
+
+Start all services:
+-------------------
+  docker compose up -d
+
+Stop all services:
+------------------
+  docker compose down
+
+View logs:
+----------
+  docker compose logs -f
+
+Rebuild services:
+-----------------
+  docker compose up -d --build
+
+Access service UIs:
+-------------------
+  Neo4j Browser:     http://localhost:7474
+  RabbitMQ Mgmt:     http://localhost:15672
+  Frontend:          http://localhost:3000
+  Ingestion API:     http://localhost:8081
+  Graph Engine:      http://localhost:8082/graphql
+
+================================================================================
+7. TROUBLESHOOTING
+================================================================================
+
+ISSUE: "Permission denied" when running docker
+SOLUTION:
+  sudo usermod -aG docker $USER
+  # Then log out and log back in
+
+ISSUE: Port already in use
+SOLUTION:
+  # Check what's using the port
+  sudo lsof -i :8081  # Replace with your port
+  # Kill the process or change port in docker-compose.yml
+
+ISSUE: Docker out of disk space
+SOLUTION:
+  docker system prune -a
+
+ISSUE: Go dependencies not resolving
+SOLUTION:
+  go mod tidy
+  go mod download
+
+ISSUE: Python package installation fails
+SOLUTION:
+  python3 -m pip install --upgrade pip
+  python3 -m pip install -r requirements.txt
+
+================================================================================
+                            READY TO START!
+================================================================================
+
+Once all tools are installed and verified, you are ready to begin Phase 1:
+Foundation implementation.
+
+Next Steps:
+-----------
+  1. Verify all installations with verify_setup.sh
+  2. Configure .env file with your credentials
+  3. (Optional) Set up OIDC providers
+  4. Proceed to Phase 1 implementation
+
+For questions or issues, refer to:
+  - docs/implementation_plan.txt
+  - docs/architecture_design.txt
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================

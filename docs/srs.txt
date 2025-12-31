@@ -1,0 +1,460 @@
+================================================================================
+                  SOFTWARE REQUIREMENTS SPECIFICATION (SRS)
+           UNIFIED IDENTITY GRAPH SYSTEM (UIGS)
+================================================================================
+Document Version: 1.0
+Date: 2024-12-31
+Standard: IEEE 830-1998 (Recommended Practice for SRS)
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. Introduction
+   1.1 Purpose
+   1.2 Scope
+   1.3 Definitions, Acronyms, and Abbreviations
+   1.4 References
+   1.5 Overview
+2. Overall Description
+   2.1 Product Perspective
+   2.2 Product Functions
+   2.3 User Characteristics
+   2.4 Constraints
+   2.5 Assumptions and Dependencies
+3. Specific Requirements
+   3.1 External Interfaces
+   3.2 Functional Requirements
+   3.3 Non-Functional Requirements
+   3.4 Design Constraints
+4. Appendices
+
+================================================================================
+1. INTRODUCTION
+================================================================================
+
+1.1 PURPOSE
+-----------
+This Software Requirements Specification (SRS) document describes the 
+functional and non-functional requirements for the Unified Identity Graph 
+System (UIGS). This document is intended for:
+
+  - Development Team: To guide implementation.
+  - Project Stakeholders: To verify scope and objectives.
+  - Quality Assurance: To derive test cases.
+  - Academic Review: To assess completeness and rigor.
+
+1.2 SCOPE
+---------
+PRODUCT NAME: Unified Identity Graph System (UIGS)
+
+DESCRIPTION: 
+  UIGS is a user-centric identity management platform that represents digital 
+  identity as a time-evolving knowledge graph. It ingests fragmented identity 
+  data from multiple sources, unifies them into a coherent graph, and enables 
+  the user to reason about, manage, and selectively disclose their identity.
+
+BENEFITS:
+  - Users gain visibility into their fragmented digital identities.
+  - Conflicts between credentials are represented, not hidden.
+  - Probabilistic identity resolution is under user control.
+  - Privacy-preserving disclosure through ZKP-compatible proofs.
+
+GOALS:
+  - Demonstrate feasibility of graph-based identity modeling.
+  - Produce a working prototype across 4 development phases.
+  - Publish academic documentation meeting IEEE standards.
+
+1.3 DEFINITIONS, ACRONYMS, AND ABBREVIATIONS
+---------------------------------------------
++----------------+------------------------------------------------------------+
+|  Term          |  Definition                                                |
++----------------+------------------------------------------------------------+
+|  DID           |  Decentralized Identifier (W3C Standard)                   |
+|  VC            |  Verifiable Credential (W3C Standard)                      |
+|  SSI           |  Self-Sovereign Identity                                   |
+|  IdP           |  Identity Provider                                         |
+|  OIDC          |  OpenID Connect                                            |
+|  ZKP           |  Zero-Knowledge Proof                                      |
+|  KG            |  Knowledge Graph                                           |
+|  UIGS          |  Unified Identity Graph System (this product)              |
+|  Node          |  A vertex in the identity graph (Fragment, Claim, etc.)    |
+|  Edge          |  A relationship between nodes (SUPPORTS, CONTRADICTS)      |
+|  Fragment      |  An isolated identity record from a single source          |
+|  Claim         |  An atomic assertion (e.g., "DOB = 1990-01-01")            |
+|  Credential    |  A signed document containing one or more claims           |
++----------------+------------------------------------------------------------+
+
+1.4 REFERENCES
+--------------
+[1] IEEE 830-1998: Recommended Practice for SRS.
+[2] W3C DID Core 1.0 (2022).
+[3] W3C VC Data Model 1.1 (2022).
+[4] Preukschat & Reed, "Self-Sovereign Identity," Manning (2021).
+[5] Project Literature Survey: literature_survey_extended.txt
+
+1.5 OVERVIEW
+------------
+Section 2 provides the overall product context and stakeholder profiles.
+Section 3 details specific functional and non-functional requirements.
+Section 4 contains appendices with supplementary information.
+
+================================================================================
+2. OVERALL DESCRIPTION
+================================================================================
+
+2.1 PRODUCT PERSPECTIVE
+-----------------------
+UIGS is a STANDALONE SYSTEM that interfaces with external identity sources.
+It is NOT a replacement for IdPs but rather a LAYER ON TOP that aggregates 
+and reasons over identity data from multiple IdPs.
+
+System Context Diagram:
+
+    +-------------------------------------------------------------+
+    |                    EXTERNAL ENVIRONMENT                     |
+    |  +------------+  +------------+  +------------+             |
+    |  |  Google    |  |  GitHub    |  | Government |             |
+    |  |  (OIDC)    |  |  (OIDC)    |  | (Simulated)|             |
+    |  +-----+------+  +-----+------+  +-----+------+             |
+    |        |               |               |                    |
+    |        +-------+-------+-------+-------+                    |
+    |                |                                            |
+    |                v                                            |
+    |  +---------------------------------------------------+      |
+    |  |            UNIFIED IDENTITY GRAPH SYSTEM          |      |
+    |  |  +-------------+  +-----------+  +-------------+  |      |
+    |  |  | Ingestion   |  | Graph     |  | Dashboard   |  |      |
+    |  |  | Service     |  | Engine    |  | (UI)        |  |      |
+    |  |  +-------------+  +-----------+  +-------------+  |      |
+    |  |         |               |               |         |      |
+    |  |         v               v               v         |      |
+    |  |  +-------------+  +-----------+                   |      |
+    |  |  | PostgreSQL  |  | Neo4j     |                   |      |
+    |  |  | (Audit Log) |  | (Graph)   |                   |      |
+    |  |  +-------------+  +-----------+                   |      |
+    |  +---------------------------------------------------+      |
+    +-------------------------------------------------------------+
+
+2.2 PRODUCT FUNCTIONS
+---------------------
+The major functions of UIGS are:
+
+  PF-1: CREDENTIAL INGESTION
+    - Accept VCs in W3C JSON-LD format.
+    - Accept OIDC tokens from Google/GitHub.
+    - Store raw payloads in immutable audit log.
+
+  PF-2: GRAPH CONSTRUCTION
+    - Decompose credentials into atomic claims.
+    - Create nodes and edges in Neo4j.
+    - Detect conflicts between claims.
+
+  PF-3: LINK PREDICTION
+    - Analyze graph for potential same-person links.
+    - Present suggestions to user with confidence scores.
+    - Allow user to confirm or reject.
+
+  PF-4: VISUALIZATION
+    - Display identity graph in web dashboard.
+    - Interactive node exploration.
+    - Temporal slider for historical views.
+
+  PF-5: SELECTIVE DISCLOSURE (Phase 4)
+    - Generate ZKP-compatible proofs.
+    - Present proofs to external verifiers.
+
+2.3 USER CHARACTERISTICS
+------------------------
++----------------+-----------------------------------------------------------+
+|  User Type     |  Description                                              |
++----------------+-----------------------------------------------------------+
+|  End User      |  Technically literate individual who wants to manage      |
+|                |  and visualize their fragmented digital identity.         |
+|                |  Expected Skills: Web navigation, basic understanding     |
+|                |  of accounts and credentials.                             |
++----------------+-----------------------------------------------------------+
+|  Administrator |  System operator who deploys and maintains UIGS.          |
+|  (Self-Hosted) |  Expected Skills: Docker, Linux, database administration. |
++----------------+-----------------------------------------------------------+
+|  Verifier      |  External party requesting proof of identity attributes.  |
+|  (Future)      |  Expected Skills: API integration.                        |
++----------------+-----------------------------------------------------------+
+
+2.4 CONSTRAINTS
+---------------
+  C-1: Technology Stack
+    - Backend: Go (Ingestion), Python (Graph Engine).
+    - Database: Neo4j (Graph), PostgreSQL (Audit).
+    - Frontend: Next.js (React).
+
+  C-2: Development Resources
+    - Single developer (academic project timeline).
+    - 6-8 week implementation window.
+
+  C-3: Regulatory
+    - System designed to be GDPR-compliant (data stored locally, 
+      not on third-party servers).
+
+  C-4: Security
+    - All data encrypted at rest.
+    - Authentication via local credentials (no external IdP for UIGS login).
+
+2.5 ASSUMPTIONS AND DEPENDENCIES
+--------------------------------
+  A-1: User has access to a modern web browser (Chrome, Firefox, Edge).
+  A-2: User has credentials from at least one OIDC provider.
+  A-3: Neo4j and PostgreSQL are available via Docker.
+  A-4: Go and Python runtimes are installed on development machine.
+
+  D-1: Neo4j Community Edition (free, open-source).
+  D-2: RabbitMQ for message queuing.
+  D-3: Next.js 14+ for frontend.
+
+================================================================================
+3. SPECIFIC REQUIREMENTS
+================================================================================
+
+3.1 EXTERNAL INTERFACES
+-----------------------
+
+3.1.1 User Interfaces (UI)
+--------------------------
+  UI-1: Login Page
+    - Fields: Username, Password.
+    - Buttons: Login, Register.
+
+  UI-2: Dashboard
+    - Components: Graph Visualization (Cytoscape.js), Sidebar (Node Details),
+                  Toolbar (Upload, Link, History).
+    - Layout: Full-screen graph with collapsible sidebar.
+
+  UI-3: Upload Modal
+    - Accept: JSON file (VC format), OIDC login button.
+    - Display: Preview of parsed claims before confirmation.
+
+  UI-4: Conflict Resolution Panel
+    - List conflicting claims.
+    - Actions: Mark Preferred, Archive Secondary.
+
+3.1.2 Software Interfaces
+-------------------------
+  SI-1: OIDC Providers (Google, GitHub)
+    - Protocol: OAuth 2.0 + OpenID Connect.
+    - Data Received: ID Token (JWT) with claims.
+
+  SI-2: Neo4j Graph Database
+    - Protocol: Bolt (neo4j://).
+    - Operations: Cypher queries (CREATE, MATCH, MERGE).
+
+  SI-3: PostgreSQL Audit Database
+    - Protocol: PostgreSQL wire protocol.
+    - Operations: INSERT (append-only), SELECT (read).
+
+  SI-4: RabbitMQ Message Queue
+    - Protocol: AMQP 0.9.1.
+    - Exchanges: identity.events (fanout).
+
+3.1.3 Communication Interfaces
+-------------------------------
+  CI-1: REST API (Ingestion Service)
+    - Endpoint: POST /api/v1/ingest
+    - Content-Type: application/json
+    - Response: 201 Created with event ID.
+
+  CI-2: GraphQL API (Graph Engine)
+    - Endpoint: POST /graphql
+    - Queries: getIdentityGraph, getNodeById, suggestLinks.
+
+--------------------------------------------------------------------------------
+
+3.2 FUNCTIONAL REQUIREMENTS
+---------------------------
+
+Each requirement is assigned an ID, priority, and rationale.
+
+Priority Scale: High (H), Medium (M), Low (L)
+
++-------+-----+----------------------------------------------------------------+
+|  ID   | PRI |  REQUIREMENT                                                   |
++-------+-----+----------------------------------------------------------------+
+| FR-01 |  H  |  The system SHALL accept Verifiable Credentials in W3C         |
+|       |     |  JSON-LD format via the /api/v1/ingest endpoint.               |
+|       |     |  Rationale: Core data ingestion capability.                    |
++-------+-----+----------------------------------------------------------------+
+| FR-02 |  H  |  The system SHALL authenticate users via OIDC (Google/GitHub)  |
+|       |     |  and extract claims from the ID Token.                         |
+|       |     |  Rationale: Enables "social proof" of account ownership.       |
++-------+-----+----------------------------------------------------------------+
+| FR-03 |  H  |  The system SHALL decompose ingested credentials into atomic   |
+|       |     |  claim nodes (e.g., Name, DOB, Email as separate nodes).       |
+|       |     |  Rationale: Enables granular graph representation.             |
++-------+-----+----------------------------------------------------------------+
+| FR-04 |  H  |  The system SHALL create SUPPORTS edges between Credentials    |
+|       |     |  and the Claims they assert.                                   |
+|       |     |  Rationale: Tracks provenance of claims.                       |
++-------+-----+----------------------------------------------------------------+
+| FR-05 |  H  |  The system SHALL detect conflicting claims (same attribute,   |
+|       |     |  different values) and create CONTRADICTS edges.               |
+|       |     |  Rationale: Conflicts are modeled, not hidden.                 |
++-------+-----+----------------------------------------------------------------+
+| FR-06 |  M  |  The system SHALL timestamp all nodes and edges with creation  |
+|       |     |  and expiration times.                                         |
+|       |     |  Rationale: Enables temporal queries.                          |
++-------+-----+----------------------------------------------------------------+
+| FR-07 |  M  |  The system SHALL suggest LIKELY_SAME edges between unlinked   |
+|       |     |  fragments that share common attributes (e.g., same email).    |
+|       |     |  Rationale: Enables probabilistic identity resolution.         |
++-------+-----+----------------------------------------------------------------+
+| FR-08 |  M  |  The system SHALL allow users to CONFIRM or REJECT suggested   |
+|       |     |  links, updating the graph accordingly.                        |
+|       |     |  Rationale: User control over identity resolution.             |
++-------+-----+----------------------------------------------------------------+
+| FR-09 |  H  |  The system SHALL display the identity graph in an interactive |
+|       |     |  force-directed layout on the dashboard.                       |
+|       |     |  Rationale: Primary user interface for identity management.    |
++-------+-----+----------------------------------------------------------------+
+| FR-10 |  M  |  The system SHALL provide an audit log showing all ingestion   |
+|       |     |  events with timestamps and source identifiers.                |
+|       |     |  Rationale: Transparency and accountability.                   |
++-------+-----+----------------------------------------------------------------+
+| FR-11 |  L  |  The system SHALL support exporting the identity graph as      |
+|       |     |  JSON-LD or RDF for interoperability.                          |
+|       |     |  Rationale: Data portability.                                  |
++-------+-----+----------------------------------------------------------------+
+| FR-12 |  L  |  The system SHALL allow users to mark a claim as "PREFERRED"   |
+|       |     |  among conflicting claims.                                     |
+|       |     |  Rationale: User-defined truth for contexts.                   |
++-------+-----+----------------------------------------------------------------+
+
+--------------------------------------------------------------------------------
+
+3.3 NON-FUNCTIONAL REQUIREMENTS
+-------------------------------
+
++-------+-----+----------------------------------------------------------------+
+|  ID   | PRI |  REQUIREMENT                                                   |
++-------+-----+----------------------------------------------------------------+
+| NF-01 |  H  |  PERFORMANCE: Graph queries SHALL return results in < 500ms    |
+|       |     |  for graphs with up to 10,000 nodes.                           |
+|       |     |  Rationale: Acceptable user experience.                        |
++-------+-----+----------------------------------------------------------------+
+| NF-02 |  H  |  SECURITY: All data at rest SHALL be encrypted using AES-256.  |
+|       |     |  Rationale: Protect sensitive identity data.                   |
++-------+-----+----------------------------------------------------------------+
+| NF-03 |  H  |  SECURITY: All API communications SHALL use HTTPS/TLS 1.3.     |
+|       |     |  Rationale: Prevent man-in-the-middle attacks.                 |
++-------+-----+----------------------------------------------------------------+
+| NF-04 |  H  |  PRIVACY: The system SHALL store data locally; no data         |
+|       |     |  transmitted to external servers except IdP authentication.    |
+|       |     |  Rationale: GDPR compliance, data sovereignty.                 |
++-------+-----+----------------------------------------------------------------+
+| NF-05 |  M  |  AVAILABILITY: The system SHALL achieve 99% uptime in          |
+|       |     |  self-hosted deployments with proper infrastructure.           |
+|       |     |  Rationale: Reliability expectation.                           |
++-------+-----+----------------------------------------------------------------+
+| NF-06 |  M  |  SCALABILITY: Architecture SHALL be microservices-based,       |
+|       |     |  allowing independent scaling of Ingestion and Graph Engine.   |
+|       |     |  Rationale: Future growth.                                     |
++-------+-----+----------------------------------------------------------------+
+| NF-07 |  M  |  PORTABILITY: All services SHALL be containerized (Docker)     |
+|       |     |  with provided Docker Compose and Kubernetes manifests.        |
+|       |     |  Rationale: Ease of deployment.                                |
++-------+-----+----------------------------------------------------------------+
+| NF-08 |  L  |  USABILITY: Dashboard SHALL be accessible on desktop browsers  |
+|       |     |  (Chrome, Firefox, Edge) at 1920x1080 resolution or higher.    |
+|       |     |  Rationale: Target user devices.                               |
++-------+-----+----------------------------------------------------------------+
+| NF-09 |  L  |  MAINTAINABILITY: Code SHALL achieve 70%+ unit test coverage.  |
+|       |     |  Rationale: Quality assurance.                                 |
++-------+-----+----------------------------------------------------------------+
+
+--------------------------------------------------------------------------------
+
+3.4 DESIGN CONSTRAINTS
+----------------------
+
+  DC-1: The system SHALL use Neo4j as the primary graph database due to its
+        mature Cypher query language and graph algorithm library.
+
+  DC-2: The system SHALL use PostgreSQL for the audit log due to its 
+        ACID compliance and append-only efficiency.
+
+  DC-3: The frontend SHALL be built with Next.js to leverage server-side
+        rendering and React ecosystem.
+
+  DC-4: The Ingestion Service SHALL be written in Go for high throughput 
+        and low memory footprint.
+
+  DC-5: The Graph Engine SHALL be written in Python for access to 
+        scientific libraries (NetworkX, scikit-learn for ML).
+
+================================================================================
+4. APPENDICES
+================================================================================
+
+APPENDIX A: USE CASE SUMMARY
+----------------------------
+
++-----------------------------------------------------------------------------+
+|  USE CASE: UC-01 - Upload Verifiable Credential                            |
++-----------------------------------------------------------------------------+
+|  Actor: End User                                                            |
+|  Precondition: User is logged in.                                           |
+|  Main Flow:                                                                 |
+|    1. User clicks "Upload Credential."                                      |
+|    2. User selects JSON-LD file from local drive.                           |
+|    3. System parses file and displays extracted claims.                     |
+|    4. User confirms upload.                                                 |
+|    5. System ingests credential, creates nodes/edges, updates graph.        |
+|  Postcondition: Graph displays new nodes.                                   |
++-----------------------------------------------------------------------------+
+
++-----------------------------------------------------------------------------+
+|  USE CASE: UC-02 - Link Fragmented Identities                               |
++-----------------------------------------------------------------------------+
+|  Actor: End User                                                            |
+|  Precondition: Graph contains unlinked fragments with common attributes.    |
+|  Main Flow:                                                                 |
+|    1. System suggests potential links with confidence scores.               |
+|    2. User reviews suggestions in sidebar.                                  |
+|    3. User confirms or rejects each suggestion.                             |
+|    4. System creates/removes edges accordingly.                             |
+|  Postcondition: Graph reflects user's linking decisions.                    |
++-----------------------------------------------------------------------------+
+
+--------------------------------------------------------------------------------
+
+APPENDIX B: DATA DICTIONARY
+---------------------------
+
++---------------+------------------+-------------------------------------------+
+|  Entity       |  Attribute       |  Description                              |
++---------------+------------------+-------------------------------------------+
+|  User         |  user_id         |  UUID, primary key                        |
+|               |  username        |  String, unique                           |
+|               |  password_hash   |  String, bcrypt                           |
+|               |  created_at      |  Timestamp                                |
++---------------+------------------+-------------------------------------------+
+|  IngestionEvt |  event_id        |  UUID, primary key                        |
+|               |  user_id         |  FK to User                               |
+|               |  raw_payload     |  JSONB                                    |
+|               |  source_type     |  Enum (VC, OIDC, MANUAL)                  |
+|               |  created_at      |  Timestamp                                |
++---------------+------------------+-------------------------------------------+
+|  GraphNode    |  node_id         |  UUID (Neo4j internal)                    |
+|               |  type            |  Enum (FRAGMENT, CLAIM, CREDENTIAL)       |
+|               |  properties      |  Map<String, Any>                         |
+|               |  created_at      |  Timestamp                                |
+|               |  expires_at      |  Timestamp (nullable)                     |
++---------------+------------------+-------------------------------------------+
+|  GraphEdge    |  edge_id         |  UUID                                     |
+|               |  type            |  Enum (SUPPORTS, CONTRADICTS, etc.)       |
+|               |  source_node     |  FK to GraphNode                          |
+|               |  target_node     |  FK to GraphNode                          |
+|               |  confidence      |  Float (0.0 - 1.0)                        |
+|               |  created_at      |  Timestamp                                |
++---------------+------------------+-------------------------------------------+
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================

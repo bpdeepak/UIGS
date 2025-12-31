@@ -1,0 +1,252 @@
+================================================================================
+                              INTRODUCTION
+           UNIFIED IDENTITY GRAPH SYSTEM (UIGS) FOR RESOLVING
+                    DIGITAL IDENTITY FRAGMENTATION
+================================================================================
+Document Version: 1.0
+Date: 2024-12-31
+================================================================================
+
+1. PROBLEM CONTEXT
+================================================================================
+
+1.1 The Fragmentation Crisis
+----------------------------
+
+In the modern digital landscape, an average individual interacts with over 
+100 online services, each requiring some form of identity verification. These 
+services span:
+
+  - Social platforms (Facebook, LinkedIn, Twitter/X)
+  - Financial services (Banks, Payment apps, Cryptocurrency exchanges)
+  - Government portals (Tax, Healthcare, Voting systems)
+  - Professional systems (Email, Enterprise SSO, HR platforms)
+  - E-commerce (Amazon, local retailers, subscription services)
+
+Each of these services creates and maintains its own representation of the 
+user's identity. This leads to IDENTITY FRAGMENTATION: the scattering of a 
+user's identity across dozens of disconnected silos.
+
+Visual Representation of the Problem:
+
+    +-------------+     +-------------+     +-------------+
+    |  Service A  |     |  Service B  |     |  Service C  |
+    |  (Bank)     |     |  (Social)   |     |  (Govt)     |
+    +------+------+     +------+------+     +------+------+
+           |                   |                   |
+           v                   v                   v
+    +-----------+       +-----------+       +-----------+
+    | Email: X  |       | Email: Y  |       | Aadhaar # |
+    | Phone: P1 |       | Username  |       | Name (Off)|
+    | DOB: D1   |       | Alt Phone |       | DOB: D2   |
+    +-----------+       +-----------+       +-----------+
+           \                   |                  /
+            \                  |                 /
+             +--------> [THE SAME PERSON] <-----+
+                    (But no system knows this)
+
+Consequences of Fragmentation:
+  - INCONSISTENCY: Same person has different data across services.
+  - VULNERABILITY: Attack surface multiplied by number of accounts.
+  - BURDEN: Users cannot see or manage their own digital footprint.
+  - LOSS: Account deletion destroys identity history irreversibly.
+  - NO CONTINUITY: Identity cannot be proven across time.
+
+--------------------------------------------------------------------------------
+
+1.2 Why Existing Solutions Fail
+-------------------------------
+
+(A) Centralized Identity Providers (Google Sign-In, Aadhaar, National IDs)
+    Problem: Replace fragmentation with CENTRAL DEPENDENCY.
+    - Revocable by provider (account suspension = identity death).
+    - Subject to jurisdiction (cross-border portability fails).
+    - Focus on AUTHENTICATION, not IDENTITY MODELING.
+
+(B) Federated Identity (SAML, OAuth, OpenID Connect)
+    Problem: Designed for enterprise SSO, not personal identity sovereignty.
+    - Still relies on IdP trust (if IdP fails, access fails).
+    - Federation agreements are institution-to-institution.
+    - User has no control over what attributes are shared.
+
+(C) Self-Sovereign Identity / Blockchain DIDs (Sovrin, uPort, ION)
+    Problem: Treats identity as a COLLECTION OF CREDENTIALS, not an entity.
+    - Wallets are "credential dumps"; no reasoning capability.
+    - Assumes a single root DID; ignores identity evolution.
+    - Credential validity is point-in-time; no temporal continuity.
+
+(D) Data Portability (GDPR Article 20 exports)
+    Problem: Provides data, not semantics.
+    - Exports are flat JSON/CSV; no relationships preserved.
+    - No mechanism to import into another system meaningfully.
+
+--------------------------------------------------------------------------------
+
+1.3 The Core Research Question
+------------------------------
+
+Given the failure of existing paradigms, this project asks:
+
+  +======================================================================+
+  |  How can we represent digital identity as a time-evolving,          |
+  |  privacy-preserving, user-controlled graph of claims, credentials,  |
+  |  and contexts that can be reasoned about, queried, and selectively  |
+  |  disclosed across any domain?                                       |
+  +======================================================================+
+
+This question has not been adequately addressed in the academic literature 
+(see Literature Survey). The closest works are:
+  - Graph-based persona modeling (Gupta et al., KDD 2025) - single domain.
+  - SSI wallet systems (Sovrin, BDIMS) - no reasoning.
+  - Identity resolution algorithms - backend, not user-facing.
+
+================================================================================
+2. PROPOSED SOLUTION: UNIFIED IDENTITY GRAPH SYSTEM (UIGS)
+================================================================================
+
+2.1 Core Concept
+----------------
+
+UIGS treats identity not as a record, but as a GRAPH:
+
+  - NODES represent atomic identity elements:
+      + Identity Fragments (accounts, logins)
+      + Claims (assertions like "DOB = 1990-01-15")
+      + Credentials (signed VCs from issuers)
+      + Contexts (roles like "Employee at X", "Student at Y")
+
+  - EDGES represent relationships:
+      + SUPPORTS (Credential C supports Claim X)
+      + CONTRADICTS (Claim X conflicts with Claim Y)
+      + DERIVED_FROM (Claim X derived from Credential C)
+      + TEMPORAL_SUCCESSOR (Claim X' replaces Claim X after date D)
+      + LIKELY_SAME (Probabilistic link: Fragment A ~ Fragment B)
+
+ASCII Representation of an Identity Graph:
+
+    +-------------------+          +-------------------+
+    |  Fragment: Gmail  |          |  Fragment: GitHub |
+    | (email@gmail.com) |          |  (username: xyz)  |
+    +---------+---------+          +---------+---------+
+              |                              |
+              | SUPPORTS                     | SUPPORTS
+              v                              v
+    +-------------------+          +-------------------+
+    | Claim: Email =    |<---------| Claim: Email =    |
+    | email@gmail.com   |  SAME    | email@gmail.com   |
+    +---------+---------+          +-------------------+
+              |
+              | DERIVED_FROM
+              v
+    +-------------------+
+    | Credential: Google|
+    | (OIDC Token)      |
+    +-------------------+
+              |
+              | CONTRADICTS (DOB mismatch)
+              v
+    +-------------------+
+    | Credential: Bank  |
+    | (KYC Document)    |
+    +-------------------+
+
+2.2 System Capabilities
+-----------------------
+
+  (1) INGESTION: Accept identity signals from any source.
+        - OIDC tokens (Google, GitHub, Microsoft)
+        - W3C Verifiable Credentials (JSON-LD format)
+        - Manual attestations (user-provided data)
+        - Simulated government APIs (for demo)
+
+  (2) DECOMPOSITION: Break credentials into atomic claims.
+        - Input: VC asserting {name: "X", DOB: "1990-01-15", degree: "CS"}
+        - Output: Three Claim nodes, linked to one Credential node.
+
+  (3) LINKING: Probabilistic connection of fragments.
+        - Algorithm: Jaccard similarity on shared attributes.
+        - Edges created with confidence scores (0.0 - 1.0).
+        - User can CONFIRM or REJECT suggested links.
+
+  (4) CONFLICT DETECTION: Model disagreement, not failure.
+        - Example: Two VCs show different DOB.
+        - System creates CONTRADICTS edge, does not discard either.
+        - User decides which to prefer in a given context.
+
+  (5) TEMPORAL QUERY: Ask about identity at any point in time.
+        - "What was my email on 2020-01-01?"
+        - "When did my address change from X to Y?"
+
+  (6) SELECTIVE DISCLOSURE: ZKP-compatible proof generation.
+        - Prove "I am over 21" without revealing DOB.
+        - Prove "I hold a valid degree from University X" without
+          revealing the degree name.
+
+================================================================================
+3. SCOPE AND OBJECTIVES
+================================================================================
+
+3.1 Project Scope
+-----------------
+
+IN SCOPE:
+  - Design of graph data model for identity representation.
+  - Backend microservices for ingestion and graph reasoning.
+  - Frontend dashboard for graph visualization.
+  - Integration with 2-3 identity sources (OIDC, manual VCs).
+  - Academic documentation (SRS, Architecture, Phase Plan).
+
+OUT OF SCOPE (Future Work):
+  - Full zero-knowledge proof implementation (simulated in Phase 1).
+  - Integration with production blockchain networks.
+  - Mobile wallet application.
+  - Real-time streaming identity updates.
+
+3.2 Objectives
+--------------
+
+  O1: RESEARCH - Complete literature survey (25+ papers) identifying gaps.
+  O2: DESIGN - Produce formal SRS, architecture design, and phase plan.
+  O3: IMPLEMENT - Build working prototype across 4 phases.
+  O4: VALIDATE - Demonstrate functionality with test scenarios.
+  O5: DOCUMENT - Produce academic-quality documentation.
+
+================================================================================
+4. DOCUMENT ROADMAP
+================================================================================
+
+This project documentation is structured as follows:
+
+  +------------------------------------------------------------------+
+  |  DOCUMENT                      |  CONTENT                        |
+  +------------------------------------------------------------------+
+  |  abstract.txt                  |  Executive summary of project   |
+  |  introduction.txt              |  Problem context and solution   |
+  |  literature_survey_extended.txt|  25-paper academic survey       |
+  |  srs.txt                       |  IEEE 830 Requirements Spec     |
+  |  architecture_design.txt       |  System architecture + diagrams |
+  |  project_phase_plan.txt        |  4-phase implementation roadmap |
+  +------------------------------------------------------------------+
+
+================================================================================
+5. CONCLUSION
+================================================================================
+
+Digital identity fragmentation is not merely an inconvenience—it is a 
+structural failure of the internet's identity layer. The current ecosystem 
+forces users to surrender control to platforms, accept inconsistencies across 
+services, and lose their digital history when accounts are terminated.
+
+This project proposes a paradigm shift: identity as a USER-OWNED, TIME-
+EVOLVING GRAPH that can be reasoned about, visualized, and selectively 
+disclosed. By synthesizing insights from SSI, knowledge graphs, identity 
+resolution, and privacy-preserving cryptography, the Unified Identity Graph 
+System (UIGS) represents a novel contribution to both academic research and 
+practical identity management.
+
+The following documents (SRS, Architecture, Phase Plan) detail the formal 
+requirements, technical design, and implementation roadmap.
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================

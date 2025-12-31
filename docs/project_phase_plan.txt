@@ -1,0 +1,394 @@
+================================================================================
+                         PROJECT PHASE PLAN
+           UNIFIED IDENTITY GRAPH SYSTEM (UIGS)
+================================================================================
+Document Version: 1.0
+Date: 2024-12-31
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. Executive Summary
+2. Phase Overview
+3. Phase 1: Foundation ("The Senses")
+4. Phase 2: Unification ("The Brain")
+5. Phase 3: Experience ("The Face")
+6. Phase 4: Intelligence ("The Shield")
+7. Timeline and Milestones
+8. Risk Assessment
+9. Quality Assurance Strategy
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+
+This document outlines the phased implementation strategy for the Unified 
+Identity Graph System (UIGS). The project is divided into FOUR PHASES, each 
+building upon the previous, with clearly defined objectives, deliverables, 
+and success criteria.
+
+PHASE SUMMARY:
+
+  +--------+----------------------+------------------------------------------+
+  |  Phase |  Name                |  Goal                                    |
+  +--------+----------------------+------------------------------------------+
+  |  1     |  Foundation          |  Infrastructure + Ingestion Service      |
+  |  2     |  Unification         |  Graph Engine + Knowledge Representation |
+  |  3     |  Experience          |  Frontend Dashboard + Visualization      |
+  |  4     |  Intelligence        |  Link Prediction + Privacy Features      |
+  +--------+----------------------+------------------------------------------+
+
+TOTAL ESTIMATED DURATION: 6-8 Weeks
+
+================================================================================
+2. PHASE OVERVIEW
+================================================================================
+
+Each phase follows a consistent structure:
+
+  (A) OBJECTIVES: What will be achieved.
+  (B) DELIVERABLES: Tangible outputs (code, documentation).
+  (C) TASKS: Detailed work items.
+  (D) DEPENDENCIES: Prerequisites from previous phases.
+  (E) ACCEPTANCE CRITERIA: How success is measured.
+
+PHASE DEPENDENCY DIAGRAM:
+
+  +-------------+       +-------------+       +-------------+       +-------------+
+  |  PHASE 1    |------>|  PHASE 2    |------>|  PHASE 3    |------>|  PHASE 4    |
+  |  Foundation |       |  Unification|       |  Experience |       |  Intelligence|
+  +-------------+       +-------------+       +-------------+       +-------------+
+        |                     |                     |                     |
+        v                     v                     v                     v
+  Infrastructure         Graph Core             User Interface       AI & Privacy
+  + Ingestion            + Reasoning            + Visualization      + ZKP
+
+================================================================================
+3. PHASE 1: FOUNDATION ("The Senses")
+================================================================================
+
+DURATION: 2 Weeks (Week 1 - Week 2)
+
+3.1 OBJECTIVES
+--------------
+  O1.1: Establish development environment and infrastructure.
+  O1.2: Implement Ingestion Service capable of receiving credentials.
+  O1.3: Set up PostgreSQL audit log and RabbitMQ messaging.
+  O1.4: Create initial project documentation and repository structure.
+
+3.2 DELIVERABLES
+----------------
+  D1.1: Git repository with mono-repo or poly-repo structure.
+  D1.2: docker-compose.yml for local development.
+  D1.3: Ingestion Service (Go) with functional endpoints.
+  D1.4: PostgreSQL schema initialized with ingestion_events table.
+  D1.5: RabbitMQ exchange and queue configured.
+
+3.3 TASKS
+---------
+  +------+-------------------------------------------------------------------+
+  |  ID  |  Task Description                                                 |
+  +------+-------------------------------------------------------------------+
+  | T1.1 |  Create Git repository and initial folder structure.              |
+  +------+-------------------------------------------------------------------+
+  | T1.2 |  Write Dockerfiles for services (Go, Python, Next.js).            |
+  +------+-------------------------------------------------------------------+
+  | T1.3 |  Configure docker-compose.yml with Neo4j, PostgreSQL, RabbitMQ.   |
+  +------+-------------------------------------------------------------------+
+  | T1.4 |  Initialize Go project with Gin framework.                        |
+  +------+-------------------------------------------------------------------+
+  | T1.5 |  Implement POST /api/v1/ingest endpoint.                          |
+  |      |  - Accept JSON body.                                              |
+  |      |  - Validate basic structure.                                      |
+  |      |  - Write to PostgreSQL.                                           |
+  |      |  - Publish to RabbitMQ.                                           |
+  +------+-------------------------------------------------------------------+
+  | T1.6 |  Implement health check endpoint (/health).                       |
+  +------+-------------------------------------------------------------------+
+  | T1.7 |  Write database migration script for PostgreSQL.                  |
+  +------+-------------------------------------------------------------------+
+  | T1.8 |  Test ingestion flow manually with curl/Postman.                  |
+  +------+-------------------------------------------------------------------+
+  | T1.9 |  Document API endpoints in README.                                |
+  +------+-------------------------------------------------------------------+
+
+3.4 DEPENDENCIES
+----------------
+  - None (first phase).
+
+3.5 ACCEPTANCE CRITERIA
+-----------------------
+  AC1.1: docker-compose up starts all services without errors.
+  AC1.2: POST /api/v1/ingest returns 201 with valid JSON payload.
+  AC1.3: Payload is visible in PostgreSQL ingestion_events table.
+  AC1.4: Message is visible in RabbitMQ queue (via management UI).
+
+================================================================================
+4. PHASE 2: UNIFICATION ("The Brain")
+================================================================================
+
+DURATION: 2 Weeks (Week 3 - Week 4)
+
+4.1 OBJECTIVES
+--------------
+  O2.1: Implement Graph Reasoning Engine that consumes events.
+  O2.2: Define and populate graph data model in Neo4j.
+  O2.3: Implement claim decomposition and conflict detection.
+  O2.4: Expose GraphQL API for querying the identity graph.
+
+4.2 DELIVERABLES
+----------------
+  D2.1: Graph Engine Service (Python/FastAPI) with consumer logic.
+  D2.2: Neo4j populated with sample identity graph.
+  D2.3: GraphQL schema and resolvers.
+  D2.4: Unit tests for graph transformation logic.
+
+4.3 TASKS
+---------
+  +------+-------------------------------------------------------------------+
+  |  ID  |  Task Description                                                 |
+  +------+-------------------------------------------------------------------+
+  | T2.1 |  Initialize Python project with FastAPI and neo4j driver.         |
+  +------+-------------------------------------------------------------------+
+  | T2.2 |  Implement RabbitMQ consumer (async listener).                    |
+  +------+-------------------------------------------------------------------+
+  | T2.3 |  Define Cypher patterns for node/edge creation.                   |
+  +------+-------------------------------------------------------------------+
+  | T2.4 |  Implement Claim Decomposition:                                   |
+  |      |  - Parse VC JSON-LD.                                              |
+  |      |  - Extract subject, issuer, claims.                               |
+  |      |  - Create :Fragment, :Credential, :Claim nodes.                   |
+  |      |  - Create :SUPPORTS edges.                                        |
+  +------+-------------------------------------------------------------------+
+  | T2.5 |  Implement Conflict Detection:                                    |
+  |      |  - Query for existing claims with same attribute.                 |
+  |      |  - If value differs, create :CONTRADICTS edge.                    |
+  +------+-------------------------------------------------------------------+
+  | T2.6 |  Define GraphQL schema (Query: getIdentityGraph, getNodeById).    |
+  +------+-------------------------------------------------------------------+
+  | T2.7 |  Implement GraphQL resolvers with Neo4j queries.                  |
+  +------+-------------------------------------------------------------------+
+  | T2.8 |  Write integration tests (ingest -> graph populated).             |
+  +------+-------------------------------------------------------------------+
+  | T2.9 |  Create sample VC files for testing.                              |
+  +------+-------------------------------------------------------------------+
+
+4.4 DEPENDENCIES
+----------------
+  - D1.5: RabbitMQ must be publishing events.
+  - D1.3: docker-compose running Neo4j.
+
+4.5 ACCEPTANCE CRITERIA
+-----------------------
+  AC2.1: Ingested VC results in new nodes in Neo4j (verify via browser).
+  AC2.2: Conflicting VCs create :CONTRADICTS edges.
+  AC2.3: GraphQL query returns correct graph structure.
+
+================================================================================
+5. PHASE 3: EXPERIENCE ("The Face")
+================================================================================
+
+DURATION: 2 Weeks (Week 5 - Week 6)
+
+5.1 OBJECTIVES
+--------------
+  O3.1: Build frontend dashboard with graph visualization.
+  O3.2: Integrate with Graph Engine GraphQL API.
+  O3.3: Implement upload workflow for VCs and OIDC.
+  O3.4: Display conflicts and allow user interaction.
+
+5.2 DELIVERABLES
+----------------
+  D3.1: Next.js application with pages (login, dashboard, upload).
+  D3.2: Cytoscape.js integration for graph rendering.
+  D3.3: Working upload flow (file select -> API call -> graph update).
+  D3.4: Conflict resolution UI.
+
+5.3 TASKS
+---------
+  +------+-------------------------------------------------------------------+
+  |  ID  |  Task Description                                                 |
+  +------+-------------------------------------------------------------------+
+  | T3.1 |  Initialize Next.js 14 project with TypeScript.                   |
+  +------+-------------------------------------------------------------------+
+  | T3.2 |  Configure Tailwind CSS for styling.                              |
+  +------+-------------------------------------------------------------------+
+  | T3.3 |  Create layout components (Header, Sidebar, MainContent).         |
+  +------+-------------------------------------------------------------------+
+  | T3.4 |  Implement Login page (local auth).                               |
+  +------+-------------------------------------------------------------------+
+  | T3.5 |  Implement Dashboard page:                                        |
+  |      |  - Fetch graph via GraphQL.                                       |
+  |      |  - Render using Cytoscape.js.                                     |
+  |      |  - Node click shows details in sidebar.                           |
+  +------+-------------------------------------------------------------------+
+  | T3.6 |  Implement Upload Modal:                                          |
+  |      |  - File input for VC JSON.                                        |
+  |      |  - Preview parsed claims.                                         |
+  |      |  - Submit to Ingestion Service.                                   |
+  +------+-------------------------------------------------------------------+
+  | T3.7 |  Implement OIDC flow (Google Sign-In button).                     |
+  +------+-------------------------------------------------------------------+
+  | T3.8 |  Implement Conflict Panel:                                        |
+  |      |  - List conflicting claims.                                       |
+  |      |  - Allow marking as "Preferred."                                  |
+  +------+-------------------------------------------------------------------+
+  | T3.9 |  Responsive design testing.                                       |
+  +------+-------------------------------------------------------------------+
+
+5.4 DEPENDENCIES
+----------------
+  - D2.3: GraphQL API must be functional.
+  - D1.5: Ingestion endpoint must accept uploads.
+
+5.5 ACCEPTANCE CRITERIA
+-----------------------
+  AC3.1: User can log in and see their identity graph.
+  AC3.2: Uploading a VC updates the graph in real-time.
+  AC3.3: Conflicts are visually distinct (red dashed edges).
+  AC3.4: User can mark a claim as preferred.
+
+================================================================================
+6. PHASE 4: INTELLIGENCE ("The Shield")
+================================================================================
+
+DURATION: 2 Weeks (Week 7 - Week 8) - FUTURE / OPTIONAL
+
+6.1 OBJECTIVES
+--------------
+  O4.1: Implement link prediction algorithm for identity resolution.
+  O4.2: Allow user to confirm/reject suggested links.
+  O4.3: Implement basic selective disclosure (simulated ZKP).
+  O4.4: Harden security and prepare for deployment.
+
+6.2 DELIVERABLES
+----------------
+  D4.1: Link prediction feature in Graph Engine.
+  D4.2: UI for reviewing and acting on suggestions.
+  D4.3: Proof generation endpoint (simulated or real ZKP).
+  D4.4: Production-ready Kubernetes manifests.
+
+6.3 TASKS
+---------
+  +------+-------------------------------------------------------------------+
+  |  ID  |  Task Description                                                 |
+  +------+-------------------------------------------------------------------+
+  | T4.1 |  Implement Jaccard similarity algorithm for fragments.            |
+  +------+-------------------------------------------------------------------+
+  | T4.2 |  Create GraphQL query: suggestLinks(userId).                      |
+  +------+-------------------------------------------------------------------+
+  | T4.3 |  Implement confirmLink and rejectLink mutations.                  |
+  +------+-------------------------------------------------------------------+
+  | T4.4 |  Add "Suggested Links" panel to Dashboard.                        |
+  +------+-------------------------------------------------------------------+
+  | T4.5 |  Research ZKP libraries (circom, snarkjs).                        |
+  +------+-------------------------------------------------------------------+
+  | T4.6 |  Implement proof endpoint (simulated: return hash-based proof).   |
+  +------+-------------------------------------------------------------------+
+  | T4.7 |  Create Helm charts for Kubernetes deployment.                    |
+  +------+-------------------------------------------------------------------+
+  | T4.8 |  Security audit: Input validation, HTTPS, CORS.                   |
+  +------+-------------------------------------------------------------------+
+  | T4.9 |  Final documentation and walkthrough video.                       |
+  +------+-------------------------------------------------------------------+
+
+6.4 DEPENDENCIES
+----------------
+  - All components from Phases 1-3 must be functional.
+
+6.5 ACCEPTANCE CRITERIA
+-----------------------
+  AC4.1: System suggests links with confidence scores for user.
+  AC4.2: Confirming a link creates :CONFIRMED_SAME edge.
+  AC4.3: Proof endpoint returns a verifiable proof (simulated).
+  AC4.4: System deploys to Kubernetes without errors.
+
+================================================================================
+7. TIMELINE AND MILESTONES
+================================================================================
+
+GANTT CHART (ASCII):
+
+  Week  |  1  |  2  |  3  |  4  |  5  |  6  |  7  |  8  |
+  ------+-----+-----+-----+-----+-----+-----+-----+-----+
+  Phase 1 (Foundation)
+        |#####|#####|     |     |     |     |     |     |
+  ------+-----+-----+-----+-----+-----+-----+-----+-----+
+  Phase 2 (Unification)
+        |     |     |#####|#####|     |     |     |     |
+  ------+-----+-----+-----+-----+-----+-----+-----+-----+
+  Phase 3 (Experience)
+        |     |     |     |     |#####|#####|     |     |
+  ------+-----+-----+-----+-----+-----+-----+-----+-----+
+  Phase 4 (Intelligence)
+        |     |     |     |     |     |     |#####|#####|
+  ------+-----+-----+-----+-----+-----+-----+-----+-----+
+
+MILESTONES:
+
+  +--------+----------------------------+-----------------------------------+
+  |  Date  |  Milestone                 |  Criteria                         |
+  +--------+----------------------------+-----------------------------------+
+  |  W2    |  M1: Ingestion Complete    |  AC1.1 - AC1.4 passed             |
+  +--------+----------------------------+-----------------------------------+
+  |  W4    |  M2: Graph Engine Complete |  AC2.1 - AC2.3 passed             |
+  +--------+----------------------------+-----------------------------------+
+  |  W6    |  M3: Dashboard Complete    |  AC3.1 - AC3.4 passed             |
+  +--------+----------------------------+-----------------------------------+
+  |  W8    |  M4: Project Complete      |  AC4.1 - AC4.4 passed             |
+  +--------+----------------------------+-----------------------------------+
+
+================================================================================
+8. RISK ASSESSMENT
+================================================================================
+
+  +------+------------------------------+----------+---------------------------+
+  |  ID  |  Risk                        | Severity |  Mitigation               |
+  +------+------------------------------+----------+---------------------------+
+  | R1   |  Neo4j performance issues    |  Medium  |  Use indexes; limit graph |
+  |      |  with large graphs.          |          |  size for prototype.      |
+  +------+------------------------------+----------+---------------------------+
+  | R2   |  OIDC integration complexity |  Medium  |  Use well-documented      |
+  |      |  (token handling, refresh).  |          |  libraries (golang-oidc). |
+  +------+------------------------------+----------+---------------------------+
+  | R3   |  ZKP implementation beyond   |  High    |  Simulate in Phase 4;     |
+  |      |  academic scope.             |          |  real ZKP as future work. |
+  +------+------------------------------+----------+---------------------------+
+  | R4   |  Time constraints (single    |  High    |  Prioritize Phases 1-3;   |
+  |      |  developer).                 |          |  Phase 4 optional.        |
+  +------+------------------------------+----------+---------------------------+
+  | R5   |  Docker/container issues     |  Low     |  Use official images;     |
+  |      |  on dev machine.             |          |  test on multiple OSes.   |
+  +------+------------------------------+----------+---------------------------+
+
+================================================================================
+9. QUALITY ASSURANCE STRATEGY
+================================================================================
+
+9.1 TESTING APPROACH
+--------------------
+  - Unit Tests: Each module has unit tests (Go: testing, Python: pytest).
+  - Integration Tests: End-to-end flow tested with Docker Compose.
+  - Manual Testing: UI tested on Chrome, Firefox, Edge.
+
+9.2 CODE QUALITY
+----------------
+  - Linting: golint (Go), ruff (Python), eslint (TypeScript).
+  - Formatting: gofmt, black, prettier.
+  - Code Review: Self-review before merge (single developer).
+
+9.3 DOCUMENTATION
+-----------------
+  - API: OpenAPI (Swagger) for Ingestion Service.
+  - GraphQL: Schema documentation with descriptions.
+  - User Guide: README with setup instructions.
+
+9.4 COVERAGE TARGETS
+--------------------
+  - Go: 70%
+  - Python: 75%
+  - TypeScript: 60%
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================
