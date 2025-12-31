@@ -213,7 +213,7 @@ This project is developed for academic purposes.
 ---
 
 **Phase 1 Acceptance Criteria:**
-- [x] docker-compose up starts all services without errors
-- [x] POST /api/v1/ingest returns 201 with valid JSON payload
-- [x] Payload is visible in PostgreSQL ingestion_events table
-- [x] Message is visible in RabbitMQ queue (via management UI)
+- [✅] docker-compose up starts all services without errors
+- [✅] POST /api/v1/ingest returns 201 with valid JSON payload
+- [✅] Payload is visible in PostgreSQL ingestion_events table
+- [✅] Message is visible in RabbitMQ queue (via management UI)
