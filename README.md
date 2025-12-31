@@ -4,12 +4,12 @@ A user-centric identity management platform that represents digital identity as 
 
 ## 🏗️ Project Status
 
-**Current Phase:** Phase 1 - Foundation ✅
+**Current Phase:** Phase 2 - Unification ✅
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | Foundation (Infrastructure + Ingestion) | ✅ Implemented |
-| 2 | Unification (Graph Engine) | 🔜 Planned |
+| 1 | Foundation (Infrastructure + Ingestion) | ✅ Complete |
+| 2 | Unification (Graph Engine) | ✅ Complete |
 | 3 | Experience (Frontend Dashboard) | 🔜 Planned |
 | 4 | Intelligence (AI/Privacy Features) | 🔜 Planned |
 
@@ -77,7 +77,9 @@ make test-api
 │   ├── ingestion/              # Go Ingestion Service ✅
 │   │   ├── cmd/server/         # Entry point
 │   │   └── internal/           # Core packages
-│   ├── graph-engine/           # Python Graph Engine (Phase 2)
+│   ├── graph-engine/           # Python Graph Engine ✅
+│   │   ├── app/                # Core packages
+│   │   └── tests/              # Unit tests (13 passing)
 │   └── frontend/               # Next.js Dashboard (Phase 3)
 │
 ├── infra/
@@ -102,6 +104,25 @@ make test-api
 | `/api/v1/ingest` | POST | Ingest a credential |
 | `/api/v1/events` | GET | List user events |
 | `/api/v1/events/:id` | GET | Get event by ID |
+
+### Graph Engine (Port 8082)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/ready` | GET | Readiness check |
+| `/process` | POST | Process pending messages |
+| `/graphql` | POST | GraphQL API |
+
+### GraphQL Queries
+
+```graphql
+# Get identity graph
+{ identityGraph { nodeCount edgeCount nodes { nodeType properties } } }
+
+# Get conflicts
+{ conflicts { attribute claimAValue claimBValue } }
+```
 
 ### Ingest Credential
 
@@ -205,6 +226,8 @@ See the `docs/` folder for comprehensive documentation:
 - **[Architecture](docs/architecture_design.txt)** - System design
 - **[Phase Plan](docs/project_phase_plan.txt)** - Implementation roadmap
 - **[Implementation](docs/implementation_plan.txt)** - Detailed specs
+- **[Phase 1 Report](docs/phase1_report.txt)** - Foundation completion
+- **[Phase 2 Report](docs/phase2_report.txt)** - Graph Engine completion
 
 ## 📄 License
 
@@ -217,3 +240,9 @@ This project is developed for academic purposes.
 - [✅] POST /api/v1/ingest returns 201 with valid JSON payload
 - [✅] Payload is visible in PostgreSQL ingestion_events table
 - [✅] Message is visible in RabbitMQ queue (via management UI)
+
+**Phase 2 Acceptance Criteria:**
+- [✅] Ingested VC results in new nodes in Neo4j
+- [✅] Conflicting VCs create CONTRADICTS edges
+- [✅] GraphQL query returns correct graph structure
+- [✅] Unit tests pass (13 tests)

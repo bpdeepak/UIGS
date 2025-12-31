@@ -92,25 +92,30 @@ services:
       - uigs-network
     restart: unless-stopped
 
-  # Graph Engine (Python) - Placeholder for Phase 2
-  # graph-engine:
-  #   build:
-  #     context: ./services/graph-engine
-  #     dockerfile: Dockerfile
-  #   container_name: uigs-graph-engine
-  #   environment:
-  #     - PORT=${GRAPH_ENGINE_PORT:-8082}
-  #     - NEO4J_URI=bolt://neo4j:7687
-  #     - NEO4J_USER=${NEO4J_USER:-neo4j}
-  #     - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j_password_2024}
-  #     - RABBITMQ_URL=amqp://${RABBITMQ_USER:-uigs_rabbit}:${RABBITMQ_PASSWORD:-rabbit_password_2024}@rabbitmq:5672/
-  #   ports:
-  #     - "${GRAPH_ENGINE_PORT:-8082}:${GRAPH_ENGINE_PORT:-8082}"
-  #   depends_on:
-  #     - neo4j
-  #     - rabbitmq
-  #   networks:
-  #     - uigs-network
+  # Graph Engine (Python) - Phase 2
+  graph-engine:
+    build:
+      context: ./services/graph-engine
+      dockerfile: Dockerfile
+    container_name: uigs-graph-engine
+    environment:
+      - PORT=${GRAPH_ENGINE_PORT:-8082}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j_password_2024}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-uigs_rabbit}:${RABBITMQ_PASSWORD:-rabbit_password_2024}@rabbitmq:5672/
+      - RABBITMQ_QUEUE=graph.engine.queue
+    ports:
+      - "${GRAPH_ENGINE_PORT:-8082}:${GRAPH_ENGINE_PORT:-8082}"
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - uigs-network
+    restart: unless-stopped
+
 
   # Frontend (Next.js) - Placeholder for Phase 3
   # frontend:
