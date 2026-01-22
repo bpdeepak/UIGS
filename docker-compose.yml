@@ -116,22 +116,23 @@ services:
       - uigs-network
     restart: unless-stopped
 
-
-  # Frontend (Next.js) - Placeholder for Phase 3
-  # frontend:
-  #   build:
-  #     context: ./services/frontend
-  #     dockerfile: Dockerfile
-  #   container_name: uigs-frontend
-  #   environment:
-  #     - NEXT_PUBLIC_GRAPHQL_URL=http://localhost:${GRAPH_ENGINE_PORT:-8082}/graphql
-  #     - NEXT_PUBLIC_INGESTION_URL=http://localhost:${INGESTION_PORT:-8081}
-  #   ports:
-  #     - "${FRONTEND_PORT:-3000}:3000"
-  #   depends_on:
-  #     - ingestion
-  #   networks:
-  #     - uigs-network
+  # Frontend (Next.js) - Phase 3
+  frontend:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+    container_name: uigs-frontend
+    environment:
+      - NEXT_PUBLIC_GRAPHQL_URL=http://localhost:8082/graphql
+      - NEXT_PUBLIC_INGESTION_URL=http://localhost:8081
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - ingestion
+      - graph-engine
+    networks:
+      - uigs-network
+    restart: unless-stopped
 
 # =============================================================================
 # NETWORKS
